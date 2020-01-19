@@ -1,0 +1,103 @@
+I"U<ul>
+  <li>Box: Nibbles
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 13 Jan 2018</li>
+      <li>IP: 10.10.10.75</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####1.Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA nibbles.nmap 10.10.10.75</code></p>
+
+<p>We can see 22 and 80 are open. Let’s navigate to the web browser and access the webpage on port 80.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles1.jpg" /></p>
+
+<p>####Directory Enumeration</p>
+
+<p>Looking at the source code of the index.html, we can see a command referencing a directory named “<strong>/nibbleblog/</strong>”.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles2.jpg" /></p>
+
+<p>So let’s run gobuster in that directory to enumerate further.
+The following command will do the trick:</p>
+
+<p><code class="highlighter-rouge">gobuster dir -u http://10.10.10.75/nibbleblog -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -x php</code></p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles3.jpg" /></p>
+
+<p>Note the <strong>/admin.php</strong> file. Accessing it, it appears to be an admin login page. Looking up default nibbleblog credentials and trying them manually actually works. The username admin:nibbles worked for me.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles4.jpg" /></p>
+
+<p>Let’s enumerate some more and look into possible exploits available for nibbleblog. There is a file named <strong>README</strong> that our gobuster found.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles5.jpg" /></p>
+
+<p>Visiting that shows us the current nibble version is 4.0.3.</p>
+
+<p>Next, we run <code class="highlighter-rouge">searchsploit</code> to look for any nibbleblog exploits. That turns up a shell upload vulnerability.
+Meaning nibbleblog’s upload feature doesn’t actually check the file extension of image uploads. We can exploit this by uploading a reverse php shell using the upload plugin instead of an image.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles6.jpg" /></p>
+
+<p>###Exploitation</p>
+
+<p>####Payload Generation</p>
+
+<p>I’m going to use the default php-reverse-shell.php script that comes with Kali and edit the <strong>$ip</strong> and <strong>$port</strong>.</p>
+
+<p>Let’s also navigate to the image upload plugin and have a look at where we’ll be uploading this script.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles7.jpg" /></p>
+
+<p>####Uploading Payload</p>
+
+<p>I set up a netcat listener and upload the malicious file.</p>
+
+<p>From there, I will want to browse to the specific file at:</p>
+
+<p><strong>http://10.10.10.75/nibbleblog/content/private/plugins/image.php</strong></p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles8.jpg" /></p>
+
+<p>And now we have a reverse shell to the target machine.</p>
+
+<p>To make the reverse connection fully interactive you follow the below steps:</p>
+
+<p><a href="https://forum.hackthebox.eu/discussion/142/obtaining-a-fully-interactive-shell">obtaining-a-fully-interactive-shell</a></p>
+
+<p>We can then see we’re under the nibbler account and the user flag is under <code class="highlighter-rouge">/home/nibbler/user.txt</code></p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles9.jpg" /></p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles10.jpg" /></p>
+
+<p>###Privilege Escalation</p>
+
+<p>Running <strong>sudo -l</strong> reveals an entry for <strong>/home/nibbler/personal/stuff/monitor.sh</strong>. However, this file does not exist so it should be possible for us to create a bash script and run it as root.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles11.jpg" /></p>
+
+<p>The script looks something like this. Super simple.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles12.jpg" /></p>
+
+<p>Change it into an executable and run it with sudo.</p>
+
+<p>And we have a root terminal from here we can simply find the root.txt file and finish the box.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles13.jpg" /></p>
+
+<p>root.txt can be found in the <strong>/root</strong> directory.</p>
+
+<p><img src="/images/posts/htb/nibbles/nibbles14.jpg" /></p>
+:ET

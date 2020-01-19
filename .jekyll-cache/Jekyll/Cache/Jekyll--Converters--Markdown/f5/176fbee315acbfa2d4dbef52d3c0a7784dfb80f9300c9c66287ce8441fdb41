@@ -1,0 +1,75 @@
+I"�
+<ul>
+  <li>Box: Beep
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 15 Mar 2017</li>
+      <li>IP: 10.10.10.7</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####1. Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA beep.nmap 10.10.10.7</code></p>
+
+<p><img src="/images/posts/htb/beep/beep1.jpg" /></p>
+
+<p>The nmap scan shows multiple open ports. Let’s open up the web browser and investigate.
+We are redirected to a HTTPS website running Elastix.</p>
+
+<p><img src="/images/posts/htb/beep/beep2.jpg" /></p>
+
+<p>In the meantime, we will run a gobuster scan to find any more directories:</p>
+
+<p>####2. Gobuster Scanning</p>
+
+<p><code class="highlighter-rouge">gobuster dir -u https://10.10.10.7/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 100 -k</code></p>
+
+<p><img src="/images/posts/htb/beep/beep3.jpg" /></p>
+
+<p>Let’s load up searchsploit and take a quick look to see if there are any exploits available for Elastix.</p>
+
+<p>###Exploitation</p>
+
+<p>####3. LFI Exploit</p>
+
+<p><img src="/images/posts/htb/beep/beep4.jpg" /></p>
+
+<p>We see there are multiple exploits, the most interesting one is the LFI and Remote Code Execution. So let’s give that one a shot.</p>
+
+<p><a href="https://www.exploit-db.com/exploits/37637">EDB-ID:37637</a></p>
+
+<p>Reading the exploit, we see the location of the LFI, which is the <strong>/vtigercrm</strong> directory. That lines up with what we see in our gobuster results too.</p>
+
+<p>So let’s copy it into the browser and see the result…</p>
+
+<p><code class="highlighter-rouge">https://10.10.10.7/vtigercrm/graph.php?current_language=../../../../../../../..//etc/amportal.conf%00&amp;module=Accounts&amp;action</code></p>
+
+<p><img src="/images/posts/htb/beep/beep5.jpg" /></p>
+
+<p>We got something, but it’s not rendered so we can simply look at the source code.</p>
+
+<p><img src="/images/posts/htb/beep/beep6.jpg" /></p>
+
+<p><img src="/images/posts/htb/beep/beep7.jpg" />
+We see many usernames / passwords for FreePBX which we can access using the admin account.</p>
+
+<p>####4. Flag Capture</p>
+
+<p>As noted in the nmap scan, port 22 is open so let’s test the admin account out there.</p>
+
+<p>Using the <strong>AMPDBPASS</strong>:
+Admin doesn’t seem to work  for SSH but what if the password is reused for root? After trying root we see the password worked!
+Password reuse is a common vulnerability on some other boxes as well.</p>
+
+<p>Let’s grab the user flag which is located at the home folder of the user “fanis” as user.txt</p>
+
+<p>The root flag is located
+<img src="/images/posts/htb/beep/beep8.jpg" /></p>
+:ET

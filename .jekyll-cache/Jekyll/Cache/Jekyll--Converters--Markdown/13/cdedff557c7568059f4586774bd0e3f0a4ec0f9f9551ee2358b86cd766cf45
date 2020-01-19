@@ -1,0 +1,26 @@
+I"K<p>This section of my website will consist of CTF boxes and my process of completing them.
+<br />
+I am going to try and writeup as many of completed boxes that I can as a way of progressing my skills.
+<br />
+I will be documenting my techniques/tools. Hopefully this can be used by anyone else who may be on their cyber-security journey.
+<br />
+This will likely be going in succession from easiest to hardest
+<br />
+Enjoy!
+—</p>
+
+<ul>
+  <li><a href="/writeups/2019/01/05/HTB-Bashed/">1. Bashed Writeup</a></li>
+  <li><a href="/writeups/2019/01/02/HTB-Devel/">2. Devel Writeup</a></li>
+  <li><a href="/writeups/2019/01/03/HTB-Shocker/">3. Shocker Writeup</a></li>
+  <li><a href="/writeups/2019/01/04/HTB-Blue/">4. Blue Writeup</a></li>
+  <li><a href="/writeups/2019/01/05/HTB-Legacy/">5. Legacy Writeup</a></li>
+  <li><a href="/writeups/2019/01/06/HTB-Popcorn/">6. Popcorn Writeup</a></li>
+  <li><a href="/writeups/2019/02/07/HTB-Nibbles/">7. Nibbles Writeup</a></li>
+  <li><a href="/writeups/2019/02/08/HTB-Lame/">8. Lame Writeup</a></li>
+  <li><a href="/writeups/2019/03/10/HTB-Optimum/">9. Optimum Writeup</a></li>
+  <li><a href="/writeups/2019/10/03/HTB-Cronos/">10. Cronos Writeup</a></li>
+  <li><a href="/writeups/2019/11/03/HTB-Beep/">11. Beep Writeup</a></li>
+  <li><a href="/writeups/2019/11/07/HTB-Haystack/">12. Haystack Writeup</a></li>
+</ul>
+:ET

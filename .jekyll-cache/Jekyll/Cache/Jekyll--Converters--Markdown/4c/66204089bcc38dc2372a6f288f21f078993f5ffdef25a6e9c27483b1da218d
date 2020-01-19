@@ -1,0 +1,29 @@
+I"<p>Type the following at a command prompt to fully reset the TCP/IP Stack</p>
+
+<!--more-->
+<p>If you’re having connection issues and you believe the hardware is good use the below to reset the TCP/IP Stack:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>netsh winsock reset
+netsh int ip reset
+netsh interface ipv4 reset
+netsh interface ipv6 reset
+netsh interface tcp reset
+netsh int reset all
+ipconfig /flushdns
+nbtstat -R
+nbtstat -RR
+netsh interface tcp set global autotuninglevel=disabled
+netsh advfirewall reset
+</code></pre></div></div>
+
+<p>You can also use PowerShell (as an administrator) and type:</p>
+
+<table>
+  <tbody>
+    <tr>
+      <td>&lt;**Get-NetAdapter</td>
+      <td>Restart-NetAdapter**&gt;</td>
+    </tr>
+  </tbody>
+</table>
+:ET

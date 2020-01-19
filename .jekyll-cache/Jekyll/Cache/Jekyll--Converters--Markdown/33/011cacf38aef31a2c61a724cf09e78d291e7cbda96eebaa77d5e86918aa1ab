@@ -1,0 +1,42 @@
+I"(<ul>
+  <li>Box: Legacy
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 15 Mar 2017</li>
+      <li>IP: 10.10.10.4</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####1.Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA legacy.nmap 10.10.10.4</code></p>
+
+<p>Based on the output of the nmap scan we can see that SMB port is open and the operating system is Windows XP.</p>
+
+<p><img src="/images/posts/htb/legacy/legacy1.jpg" /></p>
+
+<p>###Exploitation</p>
+
+<p>####2.SMB Exploits</p>
+
+<p>Now that we know the OS is Windows XP and SMB is open, lets do a quick google search.
+One of the first exploits we see is named “CVE-2008-4250” and there looks to be a Metasploit module for this. Lets give that a try.</p>
+
+<p>More information on <a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2008-4250">CVE-2008-4250</a></p>
+
+<p><img src="/images/posts/htb/legacy/legacy2.jpg" /></p>
+
+<p>User flag is at <strong>C:\Documents and Settings\john\Desktop\user.txt</strong></p>
+
+<p><img src="/images/posts/htb/legacy/legacy3.jpg" /></p>
+
+<p>Root flag is at <strong>C:\Documents and Settings\Administrator\Desktop\root.txt</strong></p>
+
+<p><img src="/images/posts/htb/legacy/legacy4.jpg" /></p>
+:ET

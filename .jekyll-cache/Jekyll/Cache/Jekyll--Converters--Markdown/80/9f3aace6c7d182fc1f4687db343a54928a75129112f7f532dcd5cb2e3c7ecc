@@ -1,0 +1,60 @@
+I"=	<ul>
+  <li>Box: Shocker
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 30 Sep 2017</li>
+      <li>IP: 10.10.10.56</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA shocker.nmap 10.10.10.56</code></p>
+
+<p>We see 2 services are open. Apache/2.4.18 and Openssh.
+OpenSSH is on a non-standard port but that does not come into affect during exploitation.</p>
+
+<p>This is also a glimpse at the “Security by Obscurity” model some administrators implement and how obscuring open port numbers doesn’t generally deter an attacker.</p>
+
+<p><img src="/images/posts/htb/shocker/shocker1.jpg" /></p>
+
+<p>####Dirbuster enumeration</p>
+
+<p>Running Dirbuster with the lowercase medium directory list shows us some promising results.</p>
+
+<p>Based on the name of the box and the directory names we are seeing, it is safe to presume this box is designed to outline the <strong>ShellShock</strong> exploit.</p>
+
+<p>More information regarding this exploit can be found <a href="https://blog.cloudflare.com/inside-shellshock/">here:</a></p>
+
+<p>With that in mind, let’s focus our attention on the <strong>/cgi-bin/</strong> directory.</p>
+
+<p>We see a file under <strong>/cgi-bin/</strong> named <strong>“user.sh”</strong>. This confirms that we are likely going to be exploiting ShellShock.</p>
+
+<p><img src="/images/posts/htb/shocker/shocker2.jpg" /></p>
+
+<p>###Exploitation</p>
+
+<p>Once we know which exploit to start with, lets fire up Metasploit and use the built-in Metasploit module for this vulnerability.</p>
+
+<p>Module: <code class="highlighter-rouge">exploit/multi/http/apache_mod_cgi_bash_env_exec</code></p>
+
+<p>We set the <strong>RHOST</strong> and <strong>TARGETURI</strong> accordingly.
+The <strong>TARGETURI</strong> will be <strong>/cgi-bin/user.sh</strong>.</p>
+
+<p>After running that, we have a pretty basic user shell.</p>
+
+<p>We can simply run the following to get a working root shell:</p>
+
+<p><code class="highlighter-rouge">sudo /usr/bin/perl -e 'exec "/bin/sh"'</code></p>
+
+<p><img src="/images/posts/htb/shocker/shocker3.jpg" /></p>
+
+<p>And we can find the user flag in <strong>/home/shelly/user.txt</strong>
+<img src="/images/posts/htb/shocker/shocker4.jpg" /></p>
+:ET

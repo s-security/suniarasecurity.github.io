@@ -1,0 +1,64 @@
+I"<p>JQShell - A Weaponized Version Of CVE-2018-9206</p>
+
+<!--more-->
+<p><img src="/images/posts/jqshellcmd.jpg" alt="" /></p>
+
+<p><strong>JQShell
+A weaponized version of CVE-2018-9206 (Unauthenticated arbitrary file upload vulnerability in Blueimp jQuery-File-Upload &lt;= v9.22.0).</strong></p>
+
+<p><strong>Disclaimer
+Using this agianst servers you dont control, is illegal in most countries. The author claims no responsibility for the actions of those who use this software for illegal purposes. This software is intended for educational use only. No servers were illegally pwned in the making of this software.</strong></p>
+
+<p><strong>Prerequisites</strong>
+<br />
+Please install these required packages.</p>
+
+<p>Python3</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pip3 install requests pysocks subprocess stem
+</code></pre></div></div>
+
+<p>Tor Control Port
+To use tor, in this script, you must edit your torrc file and enable tor control port on 9051.
+Typically this file is here: /etc/tor/torrc
+open this file and uncomment this line:</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ControlPort 9051
+</code></pre></div></div>
+<p>to</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ControlPort 9051
+restart tor service
+</code></pre></div></div>
+
+<p><strong>Usage</strong></p>
+
+<p>usage: jqshell.py [-h] [-l LIST_INIT] [-t SINGLE_TARGET] -s SHELL_LOC [-o OUTPUTZ] [-tor]</p>
+
+<p>optional arguments:
+-h, –help show this help message and exit
+-l LIST_INIT, –list LIST_INIT
+Select for a list of assets to exploit
+-t SINGLE_TARGET, –target SINGLE_TARGET
+Single exploit target
+-s SHELL_LOC, –shell SHELL_LOC
+This is required, put the fullpath to your shell
+-o OUTPUTZ, –output OUTPUTZ
+This is full path to were you want to save your list
+of confirmed hosts
+-tor, –tor_proxy Select if you have tor installed, you will need to
+enable control port</p>
+
+<p><strong>Examples</strong></p>
+
+<p>Running against single target.</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 jqshell.py -t localhost/folderwerejqueryis -s /var/www/html/shell.php
+</code></pre></div></div>
+<p>Running against single target, with saving output.</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 jqshell.py -t localhost/folderwerejqueryis -s /var/www/html/shell.php -o pwned.txt
+</code></pre></div></div>
+<p>Running a list, with saving output.</p>
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python3 jqshell.py -l /opt/jquery/test.txt -s /var/www/html/shell.php -o pwned.txt
+</code></pre></div></div>
+
+<p><strong>Download Link:</strong></p>
+
+<p>https://github.com/gunnerstahl/JQShell</p>
+:ET

