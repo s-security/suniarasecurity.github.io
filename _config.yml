@@ -17,8 +17,6 @@ markdown:  kramdown
 permalink: pretty
 paginate:  12
 
-remote_theme: east
-
 plugins:
   - jekyll-paginate
   - jekyll/tagging
