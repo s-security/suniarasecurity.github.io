@@ -13,9 +13,9 @@ tags: ["writeups", "nibbles", "htb"]
   - Release: 13 Jan 2018
   - IP: 10.10.10.75
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1.Nmap Scanning
+#### 1.Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -25,7 +25,7 @@ We can see 22 and 80 are open. Let's navigate to the web browser and access the 
 
 <img src="/images/posts/htb/nibbles/nibbles1.jpg">
 
-####Directory Enumeration
+#### Directory Enumeration
 
 Looking at the source code of the index.html, we can see a command referencing a directory named "**/nibbleblog/**".
 
@@ -53,9 +53,9 @@ Meaning nibbleblog's upload feature doesn't actually check the file extension of
 
 <img src="/images/posts/htb/nibbles/nibbles6.jpg">
 
-###Exploitation
+### Exploitation
 
-####Payload Generation
+#### Payload Generation
 
 I'm going to use the default php-reverse-shell.php script that comes with Kali and edit the **$ip** and **$port**.
 
@@ -63,7 +63,7 @@ Let's also navigate to the image upload plugin and have a look at where we'll be
 
 <img src="/images/posts/htb/nibbles/nibbles7.jpg">
 
-####Uploading Payload
+#### Uploading Payload
 
 I set up a netcat listener and upload the malicious file.
 
@@ -85,7 +85,7 @@ We can then see we're under the nibbler account and the user flag is under `/hom
 
 <img src="/images/posts/htb/nibbles/nibbles10.jpg">
 
-###Privilege Escalation
+### Privilege Escalation
 
 Running **sudo -l** reveals an entry for **/home/nibbler/personal/stuff/monitor.sh**. However, this file does not exist so it should be possible for us to create a bash script and run it as root.
 

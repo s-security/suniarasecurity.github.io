@@ -13,9 +13,9 @@ tags: ["writeups", "legacy", "htb"]
   - Release: 15 Mar 2017
   - IP: 10.10.10.4
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1.Nmap Scanning
+#### 1.Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -26,9 +26,9 @@ Based on the output of the nmap scan we can see that SMB port is open and the op
 <img src="/images/posts/htb/legacy/legacy1.jpg">
 
 
-###Exploitation
+### Exploitation
 
-####2.SMB Exploits
+#### 2.SMB Exploits
 
 Now that we know the OS is Windows XP and SMB is open, lets do a quick google search.
 One of the first exploits we see is named "CVE-2008-4250" and there looks to be a Metasploit module for this. Lets give that a try.

@@ -13,9 +13,9 @@ tags: ["writeups", "bashed", "htb"]
   - Release: 09 Dec 2017
   - IP: 10.10.10.68
 
-###Initial Enumeration
+### Initial Enumeration
 
-####Nmap Scan
+#### Nmap Scan
 Let's start with a scan of the target ip address:
 
 `nmap -sC -A -oN bashed.nmap 10.10.10.68`
@@ -26,14 +26,14 @@ Let's start with a scan of the target ip address:
 
 The result shows only tcp/80 is open.
 
-####Port 80
+#### Port 80
 
 Browsing the webpage presents us with a phpbash development page.
 After a quick search of the site, there is nothing that stands out as potentially useful.
 
 The next step would be to investigate if there are any hidden files or directories with GoBuster.
 
-####GoBuster Directory Search
+#### GoBuster Directory Search
 
 `gobuster dir -u http://10.10.10.68 -w /usr/share/dirbuster/wordlists/directory-list-2.3-medium.txt -x php`
 
@@ -41,7 +41,7 @@ Navigate to /dev
 <img src="/images/posts/htb/bashed/bashed2.jpg">
 
 
-####Get user.txt
+#### Get user.txt
 A simple `cat` of the home directory of "arrexel" shows the user.txt flag.
 
 <img src="/images/posts/htb/bashed/bashed3.jpg">
@@ -69,9 +69,9 @@ Checking the `whoami`, we see that we're running as "www-data". Run the below to
 <img src="/images/posts/htb/bashed/bashed5.jpg">
 
 
-###Privilege Escalation
+### Privilege Escalation
 
-####Misconfigured Sudo Permissions
+#### Misconfigured Sudo Permissions
 
 We check what the current user can run as sudo. We can see www-data can run all commands as scriptmanager without the need for a password.
 
@@ -82,7 +82,7 @@ We check what the current user can run as sudo. We can see www-data can run all 
 Looking through the directories manually we see a folder named **/scripts** which is owned by **scriptmanager**.
 So lets run `sudo -u scriptmanager /bin/bash` to spawn a bash shell and give full read/write access to the **/scripts** folder
 
-####Cronjobs & test.py script file
+#### Cronjobs & test.py script file
 
 The file named **test.py** looks to be executed every minute based on the timestamp of **test.txt**. We can see the text file is owned by root so it is safe to presume that it is run as a root cron job.
 

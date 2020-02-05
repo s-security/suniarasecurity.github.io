@@ -7,7 +7,7 @@ categories: ["tools"]
 tags: ["tools"]
 ---
 
-PrivilegeEsc-Linux , The Linux Enumeration Script
+## PrivilegeEsc-Linux , The Linux Enumeration Script
 <!--more-->
 This is a quick post about a script called "PrivilegeEsc-Linux"
 This simple script checks the security on a Linux machine and will enumerate everything it can about the machine.

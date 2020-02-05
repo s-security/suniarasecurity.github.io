@@ -13,9 +13,9 @@ tags: ["writeups", "popcorn", "htb"]
   - Release: 15 Mar 2017
   - IP: 10.10.10.6
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1.Nmap Scanning
+#### 1.Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -25,7 +25,7 @@ We can see 22 and 80 are open. Let's navigate to the web browser and access the 
 
 <img src="/images/posts/htb/popcorn/popcorn1.jpg">
 
-####Directory Enumeration
+#### Directory Enumeration
 
 Running Dirbuster with the lowercase medium directory list shows us a directory called "torrent". So let's navigate to that directory in the browser.
 
@@ -33,9 +33,9 @@ Running Dirbuster with the lowercase medium directory list shows us a directory 
 
 After navigating to the page, we see that we can sign up and upload only **.torrent** files
 
-###Exploitation
+### Exploitation
 
-####Testing what we can do/not do with uploads
+#### Testing what we can do/not do with uploads
 
 Let's upload a test .torrent file and see what happens:
 
@@ -69,7 +69,7 @@ Our DirBuster results show a  "torrents" directory. Navigating to that shows us 
 
 Next, we're going to set up a listener and capture the reverse_tcp shell.
 
-####Metasploit
+#### Metasploit
 
 Load up metasploit and set a listener for the php/meterpreter/reverse_tcp payload you just uploaded.
 
@@ -82,7 +82,7 @@ Once we're in, the user flag can be found at **/home/george/user.txt**
 
 <img src="/images/posts/htb/popcorn/popcorn11.jpg">
 
-###Privilege Escalation
+### Privilege Escalation
 
 Getting root is fairly trivial, we can use the known exploit called "full-nelson".
 

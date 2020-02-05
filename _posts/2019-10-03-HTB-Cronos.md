@@ -14,9 +14,9 @@ tags: ["writeups", "cronos", "htb"]
   - IP: 10.10.10.13
 
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1. Nmap Scanning
+#### 1. Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -87,7 +87,7 @@ We can look at our listener and confirm we got a shell.
 
 Next we need to escalate our privileges.
 
-###Privilege Escalation
+### Privilege Escalation
 
 After investigating the machine we don't have much luck enumerating.
 

@@ -7,7 +7,7 @@ categories: ["security"]
 tags: ["security"]
 ---
 
-FBI Released Master Decryption Keys for All Versions of the GandCrab Ransomware
+## FBI Released Master Decryption Keys for All Versions of the GandCrab Ransomware
 
 <!--more-->
 

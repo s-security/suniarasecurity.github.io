@@ -13,9 +13,9 @@ tags: ["writeups", "shocker", "htb"]
   - Release: 30 Sep 2017
   - IP: 10.10.10.56
 
-###Initial Enumeration
+### Initial Enumeration
 
-####Nmap Scanning
+#### Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -28,7 +28,7 @@ OpenSSH is on a non-standard port but that does not come into affect during expl
 
 <img src="/images/posts/htb/shocker/shocker1.jpg">
 
-####Dirbuster enumeration
+#### Dirbuster enumeration
 
 Running Dirbuster with the lowercase medium directory list shows us some promising results.
 
@@ -42,7 +42,7 @@ We see a file under **/cgi-bin/** named **"user.sh"**. This confirms that we are
 
 <img src="/images/posts/htb/shocker/shocker2.jpg">
 
-###Exploitation
+### Exploitation
 
 Once we know which exploit to start with, lets fire up Metasploit and use the built-in Metasploit module for this vulnerability.
 

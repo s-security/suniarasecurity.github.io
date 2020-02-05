@@ -7,7 +7,7 @@ categories: ["tools"]
 tags: ["tools"]
 ---
 
-Open Source Phishing Tool With 2FA Authentication
+## Open Source Phishing Tool With 2FA Authentication
 
 <!--more-->
 

@@ -14,9 +14,9 @@ tags: ["writeups", "optimum", "htb"]
   - IP: 10.10.10.8
 
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1. Nmap Scanning
+#### 1. Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -33,9 +33,9 @@ The first serach reveals that this particular version has a remote command execu
 
 [CVE-2014-6287](https://www.exploit-db.com/exploits/39161)
 
-###Exploitation
+### Exploitation
 
-####2. Metasploit Module
+#### 2. Metasploit Module
 
 Load up metasploit and simply load up the exploit for this CVE:
 
@@ -52,7 +52,7 @@ The file will be named "**user.txt.txt**"
 <img src="/images/posts/htb/optimum/optimum3.jpg">
 
 
-###Privilege Escalation
+### Privilege Escalation
 
 Now we have to get the root flag. Since we have a meterpreter session open, we can use local_exploit_suggester and look for possible vulnerabilities.
 
