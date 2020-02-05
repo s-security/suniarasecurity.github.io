@@ -14,9 +14,9 @@ tags: ["writeups", "haystack", "htb"]
   - IP: 10.10.10.115
 
 
-###Initial Enumeration
+### Initial Enumeration
 
-####1. Nmap Scanning
+#### 1. Nmap Scanning
 
 Starting with a scan of the target ip address:
 
@@ -33,7 +33,7 @@ Loading up the website we see:
 
 In the meantime, we will run a gobuster scan to find any more directories:
 
-####2. Gobuster Scanning
+#### 2. Gobuster Scanning
 
 ``gobuster dir -u https://10.10.10.7/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -t 100 -k``
 
@@ -70,7 +70,7 @@ They look to be credentials:
 We can use these credentials to SSH in and get the user flag which is located at **/home/security/user.txt**
 
 
-###Privilege Escalation
+### Privilege Escalation
 
 Now that we know we are working on an **ELK** stack we can look at the running processes to see **kibana** and **logstash** are running.
 
