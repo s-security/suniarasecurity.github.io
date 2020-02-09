@@ -9,7 +9,7 @@ tags:
   - theme
   - netlify
 email: suniarasecurity@protonmail.com
-disqus_username: 
+disqus_username:
 show_hero: true
 menu:
   - title: Home
@@ -43,7 +43,7 @@ two_columns_layout: true
 # Advanced Settings
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site
-google_analytics: "UA-XXXXXXXX-X"
+google_analytics: "UA-132021073-2"
 language: "en"
 categories_folder: category
 sent_message_url: "/contact/message-sent/"
