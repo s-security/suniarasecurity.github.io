@@ -5,9 +5,25 @@
     <description>Cyber-Security blog</description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 09 Feb 2020 11:13:19 -0800</pubDate>
-    <lastBuildDate>Sun, 09 Feb 2020 11:13:19 -0800</lastBuildDate>
+    <pubDate>Sun, 09 Feb 2020 21:15:17 -0800</pubDate>
+    <lastBuildDate>Sun, 09 Feb 2020 21:15:17 -0800</lastBuildDate>
     <generator>Jekyll v3.8.6</generator>
+    
+      <item>
+        <title>HTB - Bastard Writeup</title>
+        <description>&lt;ul&gt; &lt;li&gt;Box: Bastard &lt;ul&gt; &lt;li&gt;Difficulty: Medium&lt;/li&gt; &lt;li&gt;Points: 30&lt;/li&gt; &lt;li&gt;Release: 18 Mar 2017&lt;/li&gt; &lt;li&gt;IP: 10.10.10.9&lt;/li&gt; &lt;/ul&gt; &lt;/li&gt; &lt;/ul&gt; &lt;h3 id=&quot;initial-enumeration&quot;&gt;Initial Enumeration&lt;/h3&gt; &lt;h4 id=&quot;1-nmap-scanning&quot;&gt;1. Nmap Scanning&lt;/h4&gt; &lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt; &lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA bastard.nmap 10.10.10.9&lt;/code&gt;&lt;/p&gt; &lt;p&gt;&lt;img src=&quot;/images/posts/htb/bastard/bastard1.jpg&quot; /&gt;&lt;/p&gt; &lt;p&gt;The nmap reveals an IIS server as well as Windows RPC.&lt;/p&gt; &lt;p&gt;Loading up the website we see that the IIS server is running Drupal:&lt;/p&gt; &lt;p&gt;&lt;img src=&quot;/images/posts/htb/bastard/bastard2.jpg&quot; /&gt;&lt;/p&gt; &lt;p&gt;We can find the Drupal version by browsing to &lt;code class=&quot;highlighter-rouge&quot;&gt;10.10.10.9/CHANGELOG.txt&lt;/code&gt;&lt;/p&gt; &lt;p&gt;&lt;img src=&quot;/images/posts/htb/bastard/bastard3.jpg&quot; /&gt;&lt;/p&gt; &lt;p&gt;In the meantime, we will run a gobuster scan to find any more directories:&lt;/p&gt; &lt;h4 id=&quot;2-gobuster-scanning&quot;&gt;2....</description>
+        <pubDate>Mon, 11 Nov 2019 00:00:00 -0800</pubDate>
+        <link>http://localhost:4000/HTB-Bastard/</link>
+        <guid isPermaLink="true">http://localhost:4000/HTB-Bastard/</guid>
+        
+        <category>writeups</category>
+        
+        <category>bastard</category>
+        
+        <category>htb</category>
+        
+        <category></category>
+      </item>
     
       <item>
         <title>HTB - Haystack Writeup</title>
