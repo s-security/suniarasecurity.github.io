@@ -5,9 +5,25 @@
     <description>Cyber-Security blog</description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 09 Feb 2020 21:15:17 -0800</pubDate>
-    <lastBuildDate>Sun, 09 Feb 2020 21:15:17 -0800</lastBuildDate>
+    <pubDate>Mon, 10 Feb 2020 21:08:45 -0800</pubDate>
+    <lastBuildDate>Mon, 10 Feb 2020 21:08:45 -0800</lastBuildDate>
     <generator>Jekyll v3.8.6</generator>
+    
+      <item>
+        <title>HTB - Granny Writeup</title>
+        <description>&lt;ul&gt; &lt;li&gt;Box: Granny &lt;ul&gt; &lt;li&gt;Difficulty: Easy&lt;/li&gt; &lt;li&gt;Points: 20&lt;/li&gt; &lt;li&gt;Release: 12 Apr 2017&lt;/li&gt; &lt;li&gt;IP: 10.10.10.15&lt;/li&gt; &lt;/ul&gt; &lt;/li&gt; &lt;/ul&gt; &lt;h3 id=&quot;initial-enumeration&quot;&gt;Initial Enumeration&lt;/h3&gt; &lt;h4 id=&quot;1-nmap-scanning&quot;&gt;1. Nmap Scanning&lt;/h4&gt; &lt;p&gt;Starting with a scan of the target ip address:&lt;/p&gt; &lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;nmap -sC -sV -oA granny.nmap 10.10.10.15&lt;/code&gt;&lt;/p&gt; &lt;p&gt;&lt;img src=&quot;/images/posts/htb/granny/granny1.jpg&quot; /&gt;&lt;/p&gt; &lt;p&gt;TCP/UDP ports we found nothing just single TCP 80 Port opened. And it states it’s IIS httpd 6.0&lt;/p&gt; &lt;p&gt;After doing some research we can find an remote code execution vulnerability.&lt;/p&gt; &lt;p&gt;https://www.rapid7.com/db/modules/exploit/windows/iis/iis_webdav_upload_asp&lt;/p&gt; &lt;h3 id=&quot;exploitation&quot;&gt;Exploitation&lt;/h3&gt; &lt;p&gt;Let’s load up metasploit and try the exploit:&lt;/p&gt; &lt;p&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;use exploit/windows/iis/iis_webdav_upload_asp&lt;/code&gt;&lt;/p&gt; &lt;p&gt;We simply need to set the RHOST and the LHOST then run exploit.&lt;/p&gt;...</description>
+        <pubDate>Mon, 11 Nov 2019 00:00:00 -0800</pubDate>
+        <link>http://localhost:4000/HTB-Granny/</link>
+        <guid isPermaLink="true">http://localhost:4000/HTB-Granny/</guid>
+        
+        <category>writeups</category>
+        
+        <category>granny</category>
+        
+        <category>htb</category>
+        
+        <category></category>
+      </item>
     
       <item>
         <title>HTB - Bastard Writeup</title>

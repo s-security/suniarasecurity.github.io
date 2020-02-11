@@ -32,3 +32,5 @@ Enjoy!
 - [10. Cronos Writeup]({{ site.baseurl }}{% post_url 2019-10-03-HTB-Cronos %})
 - [11. Beep Writeup]({{ site.baseurl }}{% post_url 2019-11-03-HTB-Beep %})
 - [12. Haystack Writeup]({{ site.baseurl }}{% post_url 2019-11-07-HTB-Haystack %})
+- [13. Bastard Writeup]({{ site.baseurl }}{% post_url 2019-11-11-HTB-Bastard %})
+- [14. Granny Writeup]({{ site.baseurl }}{% post_url 2019-12-20-HTB-Granny %})
