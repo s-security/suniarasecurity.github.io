@@ -29,7 +29,7 @@ And it states it’s IIS httpd 6.0
 
 After doing some research we can find an remote code execution vulnerability.
 
-https://www.rapid7.com/db/modules/exploit/windows/iis/iis_webdav_upload_asp
+[https://www.rapid7.com/db/modules/exploit/windows/iis/iis_webdav_upload_asp](https://www.rapid7.com/db/modules/exploit/windows/iis/iis_webdav_upload_asp)
 
 
 ### Exploitation
@@ -46,7 +46,7 @@ We can see that we instantly got the shell.
 <img src="/images/posts/htb/granny/granny3.jpg">
 Next the privilege escalation:
 
-##Privilege escalation
+## Privilege escalation
 
 The exploit gave us user access as NT Authority.
 We're going to need to background our shell and use the msf post/windows/manage/migrate module.
